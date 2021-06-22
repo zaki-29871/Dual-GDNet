@@ -1,0 +1,9 @@
+/model
+log
+__pycache__
+.idea
+GDNet/extensions/build/
+GDNet/extensions/gdnet_lib.egg-info/
+GDNet/extensions/dist/
+result
+save
