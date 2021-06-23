@@ -5,8 +5,8 @@ from profile import *
 from colorama import Style
 import profile
 
-max_disparity = 192
-# max_disparity = 144
+# max_disparity = 192
+max_disparity = 144
 # version = 592
 version = None
 seed = 0

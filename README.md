@@ -16,8 +16,7 @@ Neural Network Project for Ruei-Ping's Master Thesis
 ## Dependency Compilation in Windows (ganet-lib)
     cd ./GANet/extensions/
     rm -r build
-replace `CppExtension` with `CUDAExtension` in line 5 of setup.py
-    
+replace `CppExtension` with `CUDAExtension` in line 5 of setup.py    
     python ./setup.py install
 
 ## Installation
@@ -42,24 +41,25 @@ explicit operator type&() { *((type *)(this->value)); }
 setup.py
 使用CUDAExtension
 
-# Neural Network for Stereo Image Matching
-Dual-GANet
+## Original KITTI 2015's height and width
+1242 = 2\*3^3\*23
+375 = 3\*5^3
 
-# Down-sampling rate
-
-- height, width: 32
-- disparity: 16
-- KITTI 2015
-  - height: 352
-  - width: 1216
-  - disparity: 144
-## Original height width
-1242 = 2*3^3*23
-375 = 3*5^3
 # Efficiency
 Dual-GANet: 13 seconds per KITTI 2015 image with size 384, 1248
 
-
-
 ## Other
 Disparity with float32 must multiply 256 for uint16 format
+
+## Setting of model's image
+
+| Name        | Height | Width  | Max disparity |
+| ----------- | ------ | ------ | ------------- |
+| GDNet_mdc6  | mod 32 | mod 32 | mod 16        |
+| GDNet_mdc6f | mod 32 | mod 32 | mod 16        |
+### Evaluation
+| Name           | Height | Width | Max disparity |
+| -------------- | ------ | ----- | ------------- |
+| Flyingthings3D | 384    | 960   | 144           |
+| KITTI 2015     | 352    | 1216  | 144           |
+

@@ -187,6 +187,7 @@ class CostAggregation(nn.Module):
         # Part 1
         # x: 32, D/4, H/4, W/4
         # gd1: 1920, H/4, W/4
+        # gd11, gd12: 2880, H/8, W/8
         x = self.gd1(x, g['gd1'])
         rem0 = x
 
@@ -204,6 +205,9 @@ class CostAggregation(nn.Module):
         x = self.deconv1a(x, rem0)
 
         # Part 2
+        # x: 32, D/4, H/4, W/4
+        # gd2: 1920, H/4, W/4
+        # gd13, gd14: 2880, H/8, W/8
         x = self.gd2(x, g['gd2'])
         rem0 = x
         if self.training:
@@ -218,6 +222,7 @@ class CostAggregation(nn.Module):
         x = self.deconv1b(x, rem0)
 
         # Part 3
+        # gd3: 1920, H/4, W/4
         x = self.gd3(x, g['gd3'])
 
         # x: 32, D/4, H/4, W/4
