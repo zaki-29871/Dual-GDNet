@@ -42,8 +42,8 @@ setup.py
 使用CUDAExtension
 
 ## Original KITTI 2015's height and width
-1242 = 2\*3^3\*23
-375 = 3\*5^3
+    1242 = 2*3^3*23
+    375 = 3*5^3
 
 # Efficiency
 Dual-GANet: 13 seconds per KITTI 2015 image with size 384, 1248
