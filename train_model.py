@@ -20,6 +20,7 @@ seed = 0
 loss_threshold = 10
 full_dataset = True
 small_dataset = False
+is_plot_image = False
 untexture_rate = 0
 dataset = ['flyingthings3D', 'KITTI_2015']
 image = ['cleanpass', 'finalpass']  # for flyingthings3D
@@ -97,6 +98,7 @@ for v in range(version, max_version + 1):
 
             loss = wl * train_dict0['loss'] + wr * train_dict1['loss']
             epe_loss = wl * train_dict0['epe_loss'] + wr * train_dict1['epe_loss']
+            train_dict = train_dict0
         else:
             optimizer.zero_grad()
             train_dict = used_profile.train(X, Y, dataset)
@@ -112,9 +114,10 @@ for v in range(version, max_version + 1):
         epe_loss_str = f'epe_loss = {utils.threshold_color(epe_loss)}{epe_loss:.3f}{Style.RESET_ALL}'
         print(f'[{batch_index + 1}/{len(train_loader)} {time}] {loss_str}, {epe_loss_str}')
 
-        # plotter = utils.CostPlotter()
-        # plotter.plot_image_disparity(X[0], Y[0, 0], dataset, train_dict,
-        #                              max_disparity=max_disparity)
+        if is_plot_image:
+            plotter = utils.CostPlotter()
+            plotter.plot_image_disparity(X[0], Y[0, 0], dataset, train_dict,
+                                         max_disparity=max_disparity)
 
         if torch.isnan(loss):
             print('detect loss nan in training')
@@ -144,9 +147,10 @@ for v in range(version, max_version + 1):
             error.append(float(eval_dict["error_sum"]))
             total_eval.append(float(eval_dict["total_eval"]))
 
-            # plotter = utils.CostPlotter()
-            # plotter.plot_image_disparity(X[0], Y[0, 0], dataset, eval_dict,
-            #                              max_disparity=max_disparity)
+            if is_plot_image:
+                plotter = utils.CostPlotter()
+                plotter.plot_image_disparity(X[0], Y[0, 0], dataset, eval_dict,
+                                             max_disparity=max_disparity)
 
             if torch.isnan(eval_dict["epe_loss"]):
                 print('detect loss nan in testing')

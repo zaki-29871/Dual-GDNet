@@ -12,18 +12,19 @@ version = None
 seed = 0
 lr_check = False
 max_disparity_diff = 1.5
-merge_cost = False
+merge_cost = True
 candidate = False
+plot_and_save_image = False
 dataset = ['flyingthings3D', 'KITTI_2015', 'KITTI_2015_benchmark', 'AerialImagery']
 image = ['cleanpass', 'finalpass']  # for flyingthings3D
 
-used_profile = profile.GDNet_mdc6()
+used_profile = profile.GDNet_mdc6f()
 dataset = dataset[0]
 image = image[1]
 
 if dataset == 'flyingthings3D':
     # height, width = 512, 960
-    height, width = 384, 960
+    height, width = 384, 960  # use when lack of memory
 
 elif dataset == 'KITTI_2015':
     height, width = 352, 1216
@@ -101,13 +102,14 @@ for batch_index, (X, Y) in enumerate(test_loader):
             print('detect loss nan in testing')
             exit(1)
 
-        plotter = utils.CostPlotter()
+        if plot_and_save_image:
+            plotter = utils.CostPlotter()
 
-        plotter.plot_image_disparity(X[0], Y[0, 0], dataset, eval_dict,
-                                     max_disparity=max_disparity,
-                                     save_result_file=(f'{used_profile}/{dataset}', batch_index, False,
-                                                       error_rate_str))
-        # exit(0)
+            plotter.plot_image_disparity(X[0], Y[0, 0], dataset, eval_dict,
+                                         max_disparity=max_disparity,
+                                         save_result_file=(f'{used_profile}/{dataset}', batch_index, False,
+                                                           error_rate_str))
+        # # exit(0)
         # os.system('nvidia-smi')
 
 print(f'avg loss = {np.array(losses).mean():.3f}')

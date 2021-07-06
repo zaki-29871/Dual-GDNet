@@ -13,7 +13,7 @@ class EPE_Loss:
         self.CSPN = 0.78
 
 version = None
-trend_kernel = 1  # version (plot) + trend kernel = real model version, trend_kernel = [1, 10]
+trend_kernel = 75  # version (plot) + trend kernel = real model version, trend_kernel = [1, 10]
 epe = EPE_Loss()
 used_profile = profile.GDNet_mdc6f()
 
@@ -32,17 +32,19 @@ plt.ylabel('EPE Loss')
 
 p_train = plt.plot(loss_history['train'][(trend_kernel - 1):], label='Train', marker=marker)
 p_test = plt.plot(loss_history['test'][(trend_kernel - 1):], label='Test', marker=marker)
-test_loss_trend = np.array(loss_history['test'])
-test_loss_trend = np.convolve(test_loss_trend, np.ones(trend_kernel,)) / trend_kernel
-test_loss_trend = test_loss_trend[(trend_kernel - 1):-trend_kernel + 1]
-# plt.plot(test_loss_trend, label='Test Trend', marker=marker, color=p_train[0].get_color(), linestyle='--')
-plt.plot(test_loss_trend, label='Test Trend', marker=marker)
 
-train_loss_trend = np.array(loss_history['train'])
-train_loss_trend = np.convolve(train_loss_trend, np.ones(trend_kernel,)) / trend_kernel
-train_loss_trend = train_loss_trend[(trend_kernel - 1):-trend_kernel + 1]
-# plt.plot(train_loss_trend, label='Train Trend', marker=marker, color=p_test[0].get_color(), linestyle='--')
-plt.plot(train_loss_trend, label='Train Trend', marker=marker)
+if trend_kernel > 1:
+    test_loss_trend = np.array(loss_history['test'])
+    test_loss_trend = np.convolve(test_loss_trend, np.ones(trend_kernel,)) / trend_kernel
+    test_loss_trend = test_loss_trend[(trend_kernel - 1):-trend_kernel + 1]
+    # plt.plot(test_loss_trend, label='Test Trend', marker=marker, color=p_train[0].get_color(), linestyle='--')
+    plt.plot(test_loss_trend, label='Test Trend', marker=marker)
+
+    train_loss_trend = np.array(loss_history['train'])
+    train_loss_trend = np.convolve(train_loss_trend, np.ones(trend_kernel,)) / trend_kernel
+    train_loss_trend = train_loss_trend[(trend_kernel - 1):-trend_kernel + 1]
+    # plt.plot(train_loss_trend, label='Train Trend', marker=marker, color=p_test[0].get_color(), linestyle='--')
+    plt.plot(train_loss_trend, label='Train Trend', marker=marker)
 
 plt.axhline(epe.SGM, color='b', linestyle='--', label='SGM (320 images)')
 plt.axhline(epe.MC_CNN, color='g', linestyle='--', label='MC_CNN')
