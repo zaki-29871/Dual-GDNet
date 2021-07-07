@@ -15,62 +15,95 @@ max_disparity_diff = 1.5
 merge_cost = True
 candidate = False
 plot_and_save_image = False
+use_split_prduce_disparity = False
+
+# [1/100 00:09.11] loss = 0.591, error rate = 5.66% 384, 960
+# [1/100 00:31.79] loss = 0.606, error rate = 5.96% 256, 960
+# [1/100 00:25.48] loss = 0.533, error rate = 5.04% 128, 960
+# [1/100 00:20.28] loss = 0.560, error rate = 5.38% 64, 960
+# [1/100 00:16.18] loss = 0.628, error rate = 5.90% 32, 960
+# split_height, split_width = 32, 960  # flyingthings3D
+split_height, split_width = 160, 1216  # KITTI 2015
+
 dataset = ['flyingthings3D', 'KITTI_2015', 'KITTI_2015_benchmark', 'AerialImagery']
 image = ['cleanpass', 'finalpass']  # for flyingthings3D
 
 used_profile = profile.GDNet_mdc6f()
-dataset = dataset[0]
+dataset = dataset[1]
 image = image[1]
-
-if dataset == 'flyingthings3D':
-    # height, width = 512, 960
-    height, width = 384, 960  # use when lack of memory
-
-elif dataset == 'KITTI_2015':
-    height, width = 352, 1216
-    # height, width = 336, 1200  # GDNet_dc6f
-
-elif dataset == 'KITTI_2015_benchmark':
-    height, width = 352, 1216
-    # height, width = 336, 1200  # GDNet_dc6f
-
-elif dataset == 'AerialImagery':
-    height, width = AerialImagery.image_size
-
-else:
-    height = None
-    width = None
-    raise Exception('Cannot find dataset: ' + dataset)
 
 model = used_profile.load_model(max_disparity, version)[1]
 version, loss_history = used_profile.load_history(version)
 
 print('Using model:', used_profile)
 print('Using dataset:', dataset)
-print('Image size:', (height, width))
 print('Max disparity:', max_disparity)
 print('Number of parameters: {:,}'.format(sum(p.numel() for p in model.parameters())))
+print('Using split produce disparity mode:', use_split_prduce_disparity)
 
 losses = []
 error = []
 confidence_error = []
 total_eval = []
 
-if dataset == 'flyingthings3D':
-    test_dataset = FlyingThings3D((height, width), max_disparity, type='test', crop_seed=0, image=image)
-    test_dataset = random_subset(test_dataset, 100, seed=seed)
+if use_split_prduce_disparity:
+    if dataset == 'flyingthings3D':
+        test_dataset = FlyingThings3D(max_disparity, type='test', crop_seed=0, image=image)
+        test_dataset = random_subset(test_dataset, 100, seed=seed)
 
-elif dataset == 'KITTI_2015':
-    train_dataset, test_dataset = random_split(KITTI_2015((height, width), type='train', crop_seed=0, untexture_rate=0), seed=seed)
+    elif dataset == 'KITTI_2015':
+        train_dataset, test_dataset = random_split(
+            KITTI_2015(max_disparity, type='train', crop_seed=0, untexture_rate=0),
+            seed=seed)
 
-elif dataset == 'KITTI_2015_benchmark':
-    test_dataset = KITTI_2015((height, width), type='test', crop_seed=0)
+    elif dataset == 'KITTI_2015_benchmark':
+        test_dataset = KITTI_2015(max_disparity, type='test', crop_seed=0)
 
-elif dataset == 'AerialImagery':
-    test_dataset = AerialImagery()
+    elif dataset == 'AerialImagery':
+        test_dataset = AerialImagery()
 
+    else:
+        raise Exception('Cannot find dataset: ' + dataset)
 else:
-    raise Exception('Cannot find dataset: ' + dataset)
+    if dataset == 'flyingthings3D':
+        # height, width = 512, 960
+        height, width = 384, 960  # use when lack of memory
+
+    elif dataset == 'KITTI_2015':
+        height, width = 352, 1216
+        # height, width = 336, 1200  # GDNet_dc6f
+
+    elif dataset == 'KITTI_2015_benchmark':
+        height, width = 352, 1216
+        # height, width = 336, 1200  # GDNet_dc6f
+
+    elif dataset == 'AerialImagery':
+        height, width = AerialImagery.image_size
+
+    if dataset == 'flyingthings3D':
+        # height, width = 512, 960
+        height, width = 384, 960  # use when lack of memory
+        test_dataset = FlyingThings3D(max_disparity, crop_size=(height, width), type='test', crop_seed=0, image=image)
+        test_dataset = random_subset(test_dataset, 100, seed=seed)
+
+    elif dataset == 'KITTI_2015':
+        height, width = 352, 1216
+        # height, width = 336, 1200  # GDNet_dc6f
+        train_dataset, test_dataset = random_split(KITTI_2015((height, width), type='train', crop_seed=0, untexture_rate=0),
+                                                   seed=seed)
+
+    elif dataset == 'KITTI_2015_benchmark':
+        height, width = 352, 1216
+        # height, width = 336, 1200  # GDNet_dc6f
+        test_dataset = KITTI_2015((height, width), type='test', crop_seed=0)
+
+    elif dataset == 'AerialImagery':
+        height, width = AerialImagery.image_size
+        test_dataset = AerialImagery()
+
+    else:
+        raise Exception('Cannot find dataset: ' + dataset)
+    print('Image size:', (height, width))
 
 test_loader = DataLoader(test_dataset, batch_size=1, shuffle=False)
 print('Number of testing data:', len(test_dataset))
@@ -80,11 +113,19 @@ for batch_index, (X, Y) in enumerate(test_loader):
         utils.tic()
 
         if isinstance(used_profile, profile.GDNet_mdc6):
-            eval_dict = used_profile.eval(X, Y, dataset, merge_cost=merge_cost, lr_check=False, candidate=candidate, regression=True,
-                                     penalize=False, slope=1, max_disparity_diff=1.5)
+            if use_split_prduce_disparity:
+                eval_dict = utils.split_prduce_disparity(used_profile, X, Y, dataset, max_disparity, split_height,
+                                                         split_width,
+                                                         merge_cost=merge_cost, lr_check=False,
+                                                         candidate=candidate,
+                                                         regression=True,
+                                                         penalize=False, slope=1, max_disparity_diff=1.5)
+            else:
+                eval_dict = used_profile.eval(X, Y, dataset, merge_cost=merge_cost, lr_check=False, candidate=candidate,
+                                              regression=True,
+                                              penalize=False, slope=1, max_disparity_diff=1.5)
         else:
             eval_dict = used_profile.eval(X, Y, dataset)
-
 
         time = utils.timespan_str(utils.toc(True))
         loss_str = f'loss = {utils.threshold_color(eval_dict["epe_loss"])}{eval_dict["epe_loss"]:.3f}{Style.RESET_ALL}'

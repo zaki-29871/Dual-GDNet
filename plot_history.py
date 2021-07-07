@@ -13,7 +13,7 @@ class EPE_Loss:
         self.CSPN = 0.78
 
 version = None
-trend_kernel = 75  # version (plot) + trend kernel = real model version, trend_kernel = [1, 10]
+trend_kernel = 50  # version (plot) + trend kernel = real model version, trend_kernel = [1, 10]
 epe = EPE_Loss()
 used_profile = profile.GDNet_mdc6f()
 

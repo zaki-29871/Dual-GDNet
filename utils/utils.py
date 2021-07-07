@@ -164,7 +164,7 @@ class CostPlotter:
         self.marker_size = 15
 
     def plot_image_disparity(self, X, Y, dataset, eval_dict, max_disparity=192, padding=30, save_file=None,
-                             save_result_file=None, resize=None, error_map=True):
+                             save_result_file=None, error_map=True, is_benchmark=False):
         self.max_disparity = max_disparity
         self.padding = padding
         self.confidence_error = None
@@ -180,7 +180,7 @@ class CostPlotter:
                 self.predict = self.predict.data.cpu().numpy()
 
             X = (X * 255).data.cpu().numpy().astype('uint8')
-            X = X.swapaxes(1, 2).swapaxes(0, 2)
+            X = X.swapaxes(1, 2).swapaxes(0, 2)  # hegiht, width, channel*3
             Y = Y.data.cpu().numpy()
 
             if 'confidence_error' in eval_dict.keys() and eval_dict["confidence_error"] is not None:
@@ -196,7 +196,7 @@ class CostPlotter:
         else:
             raise Exception('cannot find data type')
 
-        if self.predict is not None:
+        if self.predict is not None and not is_benchmark:
             mask = y_mask(Y, self.max_disparity, dataset) & (self.predict != -1)
             self.error_map = np.zeros(Y.shape, dtype=np.float)
             self.error_map[mask] = np.abs(self.predict[mask] - Y[mask])
@@ -237,7 +237,7 @@ class CostPlotter:
             plt.title(f'Predict Disparity, EPE = {self.eval_dict["epe_loss"]:.3f}')
             plt.imshow(self.predict, vmin=self.vmin, vmax=self.vmax, cmap='jet')
 
-        if self.error_map is not None:
+        if self.error_map is not None and not is_benchmark:
             plt.subplot(325)
             plt.title('Error Map')
             plt.imshow(self.error_map, cmap='jet')
@@ -266,15 +266,12 @@ class CostPlotter:
 
             os.makedirs(os.path.join(self.RESULT_ROOT, subfoler, 'predict'), exist_ok=True)
             os.makedirs(os.path.join(self.RESULT_ROOT, subfoler, 'disp_0'), exist_ok=True)
-            os.makedirs(os.path.join(self.RESULT_ROOT, subfoler, 'error_map'), exist_ok=True)
+            if not is_benchmark:
+                os.makedirs(os.path.join(self.RESULT_ROOT, subfoler, 'error_map'), exist_ok=True)
 
             if error_map:
                 plt.imsave(os.path.join(self.RESULT_ROOT, subfoler, 'predict', f'{batch_index}.png'),
                            self.predict, vmin=self.vmin, vmax=self.vmax, cmap='jet')
-
-            if resize is not None:
-                print('Resize prediction:', resize)
-                self.predict = cv2.resize(self.predict, resize)
 
             img = self.predict  # <class 'numpy.ndarray'>
             # print(img[250:280, 250:280].reshape(-1))
@@ -287,7 +284,7 @@ class CostPlotter:
             cv2.imwrite(save_path, (img * 0x100).astype('uint16'))
             # imageio.imwrite(save_path, img.astype('float16'))
             # numpngw.write_png(save_path, img, bitdepth=16)
-            if error_map:
+            if error_map and not is_benchmark:
                 plt.imsave(os.path.join(self.RESULT_ROOT, subfoler, 'error_map', f'{batch_index}_{error_rate_str}.png'),
                            self.error_map, vmin=self.vmin, vmax=self.vmax, cmap='jet')
 
@@ -657,3 +654,121 @@ def flip_X(X, Y):
     Y = flip_d.cuda()
 
     return X, Y
+
+
+def split_prduce_disparity(used_profile, X, Y, dataset, max_disparity, split_height, split_width, merge_cost=False, lr_check=False,
+                           candidate=False,
+                           regression=True, penalize=False,
+                           slope=1, max_disparity_diff=1.5):
+    """
+    :param used_profile: neural network model's profile
+    :param X: tow contacted images
+    :return: eval_dict (full)
+    """
+
+    origin_height = X.shape[2]
+    number_of_height_block = origin_height // split_height + 1
+
+    origin_width = X.shape[3]
+    number_of_width_block = origin_width // split_width + 1
+
+    assert split_height <= origin_height
+    assert origin_width <= origin_width
+    eval_dict_full = {
+        'error_sum': 0,
+        'total_eval': 0,
+        'epe_loss': 0,
+        'confidence_error': torch.zeros((1, origin_height, origin_width), dtype=torch.float),
+        'CE_avg': 0,
+        'disp': torch.zeros((1, 1, origin_height, origin_width), dtype=torch.float)
+    }
+    epe_loss_and_partial_eval_list = []
+    confidence_error_and_partial_pixels_list = []
+    total_confidence_error_pixels = 0
+
+    for h in range(number_of_height_block):
+        for w in range(number_of_width_block):
+            print('process h w', h, w)
+            X_block = None
+            Y_block = None
+
+            if h < number_of_height_block - 1 and w < number_of_width_block - 1:
+                h_base = h * split_height
+                w_base = w * split_width
+                X_block = X[:, :, h_base:h_base + split_height, w_base:w_base + split_width]
+                Y_block = Y[:, :, h_base:h_base + split_height, w_base:w_base + split_width]
+
+                eval_dict = used_profile.eval(X_block, Y_block, dataset, merge_cost=merge_cost, lr_check=lr_check,
+                                              candidate=candidate,
+                                              regression=regression,
+                                              penalize=penalize, slope=slope, max_disparity_diff=max_disparity_diff)
+
+                eval_dict_full['disp'][:, :, h_base:h_base + split_height, w_base:w_base + split_width] = \
+                    eval_dict['disp'][0, ...]
+                eval_dict_full['confidence_error'][:, h_base:h_base + split_height, w_base:w_base + split_width] = \
+                    eval_dict['confidence_error'][0, ...]
+
+            elif h == number_of_height_block - 1 and w < number_of_width_block - 1:
+                # Block's height touches edges
+                h_base = origin_height - split_height
+                w_base = w * split_width
+                X_block = X[:, :, h_base:, w_base:w_base + split_width]
+                Y_block = Y[:, :, h_base:, w_base:w_base + split_width]
+
+                eval_dict = used_profile.eval(X_block, Y_block, dataset, merge_cost=merge_cost, lr_check=lr_check,
+                                              candidate=candidate,
+                                              regression=regression,
+                                              penalize=penalize, slope=slope, max_disparity_diff=max_disparity_diff)
+
+                eval_dict_full['disp'][:, :, h_base:, w_base:w_base + split_width] = eval_dict['disp'][0, ...]
+                eval_dict_full['confidence_error'][:, h_base:, w_base:w_base + split_width] = \
+                    eval_dict['confidence_error'][0, ...]
+
+            elif h < number_of_height_block - 1 and w == number_of_width_block - 1:
+                # Block's width touches edges
+                h_base = h * split_height
+                w_base = origin_width - split_width
+                X_block = X[:, :, h_base:h_base + split_height, w_base:]
+                Y_block = Y[:, :, h_base:h_base + split_height, w_base:]
+
+                eval_dict = used_profile.eval(X_block, Y_block, dataset, merge_cost=merge_cost, lr_check=lr_check,
+                                              candidate=candidate,
+                                              regression=regression,
+                                              penalize=penalize, slope=slope, max_disparity_diff=max_disparity_diff)
+
+                eval_dict_full['disp'][:, :, h_base:h_base + split_height, w_base:] = eval_dict['disp'][0, ...]
+                eval_dict_full['confidence_error'][:, h_base:h_base + split_height, w_base:] = \
+                    eval_dict['confidence_error'][0, ...]
+
+            else:
+                # Block's height and width touch edges
+                h_base = origin_height - split_height
+                w_base = origin_width - split_width
+                X_block = X[:, :, h_base:, w_base:]
+                Y_block = Y[:, :, h_base:, w_base:]
+                eval_dict = used_profile.eval(X_block, Y_block, dataset, merge_cost=merge_cost, lr_check=lr_check,
+                                              candidate=candidate,
+                                              regression=regression,
+                                              penalize=penalize, slope=slope, max_disparity_diff=max_disparity_diff)
+
+                eval_dict_full['disp'][:, :, h_base:, w_base:] = eval_dict['disp'][0, ...]
+                eval_dict_full['confidence_error'][:, h_base:, w_base:] = eval_dict['confidence_error'][0, ...]
+
+            eval_dict_full['error_sum'] += eval_dict['error_sum']
+            eval_dict_full['total_eval'] += eval_dict['total_eval']
+            epe_loss_and_partial_eval_list.append((eval_dict['epe_loss'], eval_dict['total_eval']))
+            confidence_error_pixels = int(eval_dict_full['confidence_error'][:, max_disparity:].reshape(-1).size(0))
+            total_confidence_error_pixels += confidence_error_pixels
+            confidence_error_and_partial_pixels_list.append(
+                (eval_dict_full['confidence_error'], confidence_error_pixels))
+
+    for epe_loss, total_eval in epe_loss_and_partial_eval_list:
+        block_weight = total_eval / eval_dict_full['total_eval']
+        eval_dict_full['epe_loss'] += block_weight * epe_loss
+
+    for confidence_error, confidence_error_pixels in confidence_error_and_partial_pixels_list:
+        block_weight = confidence_error_pixels / total_confidence_error_pixels
+        eval_dict_full['CE_avg'] += block_weight * eval_dict['confidence_error'][:,
+                                                                     max_disparity:].mean()
+    eval_dict_full['disp'] = eval_dict_full['disp'][0]
+    return eval_dict_full

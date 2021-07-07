@@ -473,6 +473,7 @@ def disparity_confidence(cost, flip_cost):
     disp = torch.argmax(cost, dim=1).unsqueeze(1)
     mask = torch.zeros(cost.size(), dtype=torch.bool).to(cost.device)
     mask.scatter_(1, disp, 1)
+    # ((cost - flip_cost).abs() * mask) torch.Size([1, 192, 160, 1216])
     confidence = ((cost - flip_cost).abs() * mask).sum(dim=1)
     confidence[:, :, :cost.size(1)] = 0
     return confidence

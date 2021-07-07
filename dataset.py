@@ -6,11 +6,14 @@ import cv2
 import random
 import numpy as np
 
+
 class FlyingThings3D(Dataset):
     # ROOT = '/media/jack/data/Dataset/pytorch/flyingthings3d'
     ROOT = r'G:\Dataset\pytorch\flyingthings3d'
 
-    def __init__(self, crop_size, max_disparity, type='train', image='cleanpass', crop_seed=None, down_sampling=1,
+    # height, width = 540, 960
+
+    def __init__(self, max_disparity, crop_size=None, type='train', image='cleanpass', crop_seed=None, down_sampling=1,
                  disparity=['left'], small=False):
         if small:
             self.ROOT += '_s'
@@ -60,16 +63,20 @@ class FlyingThings3D(Dataset):
     def __getitem__(self, index):
         index = self.mask_index[index]
         X = utils.load(os.path.join(self.root, f'{self.image}/{index:05d}.np'))
-        cropper = utils.RandomCropper(X.shape[1:3], self.crop_size, seed=self.crop_seed)
         X = torch.from_numpy(X)
-        X = cropper.crop(X).float() / 255
+
+        if self.crop_size is not None:
+            cropper = utils.RandomCropper(X.shape[1:3], self.crop_size, seed=self.crop_seed)
+            X = cropper.crop(X)
+        X = X.float() / 255
 
         Y_list = []
         for d in self.disparity:
             Y = utils.load(os.path.join(self.root, f'{d}_disparity/{index:05d}.np'))
             Y = torch.from_numpy(Y)
-            Y = cropper.crop(Y).unsqueeze(0)
-            Y_list.append(Y)
+            if self.crop_size is not None:
+                Y = cropper.crop(Y)
+            Y_list.append(Y.unsqueeze(0))
         Y = torch.cat(Y_list, dim=0)
 
         if self.down_sampling != 1:
@@ -93,10 +100,18 @@ class FlyingThings3D(Dataset):
                 m += 1
             i += 1
 
+
 class KITTI_2015(Dataset):
     ROOT = r'G:\Dataset\KITTI 2015'
 
-    def __init__(self, crop_size, type='train', crop_seed=None, untexture_rate=0.1):
+    # KITTI 2015 original height and width (375, 1242, 3), dtype uint8
+    # height and width: (370, 1224) is the smallest size
+
+    # HEIGHT, WIDTH = 384, 1248
+    # HEIGHT, WIDTH = 352, 1216  # GTX 2080 Ti
+    # HEIGHT, WIDTH = 256, 1248  # GTX 1660 Ti
+
+    def __init__(self, max_disparity, crop_size=None, type='train', crop_seed=None, untexture_rate=0.1):
         assert os.path.exists(self.ROOT), 'Dataset path is not exist'
         self.type = type
         if type == 'train':
@@ -112,7 +127,7 @@ class KITTI_2015(Dataset):
 
     def __getitem__(self, index):
         if self.type == 'train':
-            untexture_learning = random.randint(1, 100) <= int(self.untexture_rate*100)
+            untexture_learning = random.randint(1, 100) <= int(self.untexture_rate * 100)
             if untexture_learning:
                 print('untexture_learning')
                 bgr = (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
@@ -120,19 +135,20 @@ class KITTI_2015(Dataset):
                 X2 = np.full((375, 1242, 3), bgr, dtype=np.uint8)
                 Y = np.full((375, 1242), 0.001, dtype=np.float32)
 
-                cropper = utils.RandomCropper(X1.shape[0:2], self.crop_size, seed=self.crop_seed)
                 X = np.concatenate([X1, X2], axis=2)
                 X = X.swapaxes(0, 2).swapaxes(1, 2)
                 X, Y = torch.from_numpy(X).float(), torch.from_numpy(Y)
                 Y = Y.unsqueeze(0)
-                X, Y = cropper.crop(X).float() / 255, cropper.crop(Y).float()
+
+                if self.crop_size is not None:
+                    cropper = utils.RandomCropper(X1.shape[0:2], self.crop_size, seed=self.crop_seed)
+                    X, Y = cropper.crop(X), cropper.crop(Y)
+                X, Y = X.float() / 255, Y.float()
                 return X.cuda(), Y.cuda()
             else:
                 X1 = cv2.imread(os.path.join(self.root, 'image_2/{:06d}_10.png'.format(index)))
                 X2 = cv2.imread(os.path.join(self.root, 'image_3/{:06d}_10.png'.format(index)))
                 Y = cv2.imread(os.path.join(self.root, 'disp_occ_0/{:06d}_10.png'.format(index)))
-
-                cropper = utils.RandomCropper(X1.shape[0:2], self.crop_size, seed=self.crop_seed)
 
                 X1 = utils.rgb2bgr(X1)
                 X2 = utils.rgb2bgr(X2)
@@ -142,13 +158,15 @@ class KITTI_2015(Dataset):
                 Y = Y[:, :, 0]
                 X, Y = torch.from_numpy(X).float(), torch.from_numpy(Y)
                 Y = Y.unsqueeze(0)
-                X, Y = cropper.crop(X).float() / 255, cropper.crop(Y).float()
+                if self.crop_size is not None:
+                    cropper = utils.RandomCropper(X1.shape[0:2], self.crop_size, seed=self.crop_seed)
+                    X, Y = cropper.crop(X), cropper.crop(Y)
+                X, Y = X.float() / 255, Y.float()
                 return X.cuda(), Y.cuda()
 
         elif self.type == 'test':
             X1 = cv2.imread(os.path.join(self.root, 'image_2/{:06d}_10.png'.format(index)))
             X2 = cv2.imread(os.path.join(self.root, 'image_3/{:06d}_10.png'.format(index)))
-            cropper = utils.RandomCropper(X1.shape[0:2], self.crop_size, seed=self.crop_seed)
 
             X1 = utils.rgb2bgr(X1)
             X2 = utils.rgb2bgr(X2)
@@ -156,8 +174,10 @@ class KITTI_2015(Dataset):
             X = np.concatenate([X1, X2], axis=2)
             X = X.swapaxes(0, 2).swapaxes(1, 2)
             X = torch.from_numpy(X)
-            X = cropper.crop(X) / 255.0
-
+            if self.crop_size is not None:
+                cropper = utils.RandomCropper(X1.shape[0:2], self.crop_size, seed=self.crop_seed)
+                X = cropper.crop(X)
+            X = X / 255.0
             Y = torch.ones((1, X.size(1), X.size(2)), dtype=torch.float)
 
             return X.cuda(), Y.cuda()
@@ -168,10 +188,16 @@ class KITTI_2015(Dataset):
         if self.type == 'test':
             return 20
 
+
 class KITTI_2015_benchmark(Dataset):
     ROOT = r'G:\Dataset\KITTI 2015'
+
+    # KITTI 2015 original height and width (375, 1242, 3), dtype uint8
+    # height and width: (370, 1224) is the smallest size
+
     # HEIGHT, WIDTH = 384, 1248
-    HEIGHT, WIDTH = 352, 1216
+    # HEIGHT, WIDTH = 352, 1216  # GTX 2080 Ti
+    # HEIGHT, WIDTH = 256, 1248  # GTX 1660 Ti
 
     def __init__(self):
         assert os.path.exists(self.ROOT), 'Dataset path is not exist'
@@ -182,11 +208,12 @@ class KITTI_2015_benchmark(Dataset):
         X2 = cv2.imread(os.path.join(self.root, 'image_3/{:06d}_10.png'.format(index)))
         origin_height, origin_width = X1.shape[:2]
 
-        # Ground true (375, 1242, 3), dtype uint8
+        print('KITTI 2015 original height and width:', origin_height, origin_width)
+
         # print(cv2.imread(f'D:/Dataset/KITTI 2015/training/disp_noc_0/{index:06d}_10.png')[250:, 250:])
 
-        X1 = cv2.resize(X1, (self.WIDTH, self.HEIGHT))
-        X2 = cv2.resize(X2, (self.WIDTH, self.HEIGHT))
+        # X1 = cv2.resize(X1, (self.WIDTH, self.HEIGHT))
+        # X2 = cv2.resize(X2, (self.WIDTH, self.HEIGHT))
 
         X1 = utils.rgb2bgr(X1)
         X2 = utils.rgb2bgr(X2)
@@ -200,6 +227,7 @@ class KITTI_2015_benchmark(Dataset):
 
     def __len__(self):
         return 200
+
 
 class AerialImagery(Dataset):
     ROOT = '/media/jack/data/Dataset/aerial imagery'
@@ -247,6 +275,7 @@ class AerialImagery(Dataset):
     def __len__(self):
         return len(self.rc)
 
+
 def random_subset(dataset, size, seed=None):
     assert size <= len(dataset), 'subset size cannot larger than dataset'
     np.random.seed(seed)
@@ -254,6 +283,7 @@ def random_subset(dataset, size, seed=None):
     np.random.shuffle(indexes)
     indexes = indexes[:size]
     return Subset(dataset, indexes)
+
 
 def random_split(dataset, train_ratio=0.8, seed=None):
     assert 0 <= train_ratio <= 1
@@ -264,6 +294,7 @@ def random_split(dataset, train_ratio=0.8, seed=None):
     train_indexes = indexes[:train_size]
     test_indexes = indexes[train_size:]
     return Subset(dataset, train_indexes), Subset(dataset, test_indexes)
+
 
 def sub_sampling(X, Y, ratio):
     X = X[:, ::ratio, ::ratio]

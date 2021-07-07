@@ -5,13 +5,18 @@ from profile import *
 from colorama import Style
 import profile
 
-max_disparity = 144
+max_disparity = 192
+# max_disparity = 144
 version = None
 seed = 0
 lr_check = False
 max_disparity_diff = 1.5
 merge_cost = True
 candidate = False
+plot_and_save_image = True
+use_split_prduce_disparity = True
+split_height = 160
+split_width = 1216
 
 used_profile = profile.GDNet_mdc6f()
 dataset = 'KITTI_2015_benchmark'
@@ -21,9 +26,10 @@ version, loss_history = used_profile.load_history(version)
 
 print('Using model:', used_profile)
 print('Using dataset:', dataset)
-print('Image size:', (KITTI_2015_benchmark.HEIGHT, KITTI_2015_benchmark.WIDTH))
+# print('Image size:', (KITTI_2015_benchmark.HEIGHT, KITTI_2015_benchmark.WIDTH))
 print('Max disparity:', max_disparity)
 print('Number of parameters: {:,}'.format(sum(p.numel() for p in model.parameters())))
+print('Using split produce disparity mode:', use_split_prduce_disparity)
 
 losses = []
 error = []
@@ -39,14 +45,20 @@ for batch_index, (X, Y, origin_height, origin_width) in enumerate(test_loader):
     with torch.no_grad():
         utils.tic()
 
-        eval_dict = used_profile.eval(X, Y, dataset, merge_cost=merge_cost, lr_check=False, candidate=candidate,
-                                 regression=True,
-                                 penalize=False, slope=1, max_disparity_diff=1.5)
+        if use_split_prduce_disparity:
+            eval_dict = utils.split_prduce_disparity(used_profile, X, Y, dataset, max_disparity, split_height,
+                                                     split_width, merge_cost=merge_cost,
+                                                     lr_check=False,
+                                                     candidate=candidate,
+                                                     regression=True,
+                                                     penalize=False, slope=1, max_disparity_diff=1.5)
+        else:
+            eval_dict = used_profile.eval(X, Y, dataset, merge_cost=merge_cost, lr_check=False, candidate=candidate,
+                                          regression=True,
+                                          penalize=False, slope=1, max_disparity_diff=1.5)
 
         time = utils.timespan_str(utils.toc(True))
-        loss_str = f'loss = {utils.threshold_color(eval_dict["epe_loss"])}{eval_dict["epe_loss"]:.3f}{Style.RESET_ALL}'
-        error_rate_str = f'{eval_dict["error_sum"] / eval_dict["total_eval"]:.2%}'
-        print(f'[{batch_index + 1}/{len(test_loader)} {time}] {loss_str}, error rate = {error_rate_str}')
+        print(f'[{batch_index + 1}/{len(test_loader)} {time}]')
 
         losses.append(float(eval_dict["epe_loss"]))
         error.append(float(eval_dict["error_sum"]))
@@ -59,18 +71,19 @@ for batch_index, (X, Y, origin_height, origin_width) in enumerate(test_loader):
             print('detect loss nan in testing')
             exit(1)
 
-        plotter = utils.CostPlotter()
+        if plot_and_save_image:
+            plotter = utils.CostPlotter()
 
-        origin_width = int(origin_width)
-        origin_height = int(origin_height)
+            origin_width = int(origin_width)
+            origin_height = int(origin_height)
 
-        # dimension X: batch, channel*2, height, width = 1, 6, 352, 1216
-        plotter.plot_image_disparity(X[0], Y[0, 0], dataset, eval_dict,
-                                     max_disparity=max_disparity,
-                                     save_result_file=(f'{used_profile}_benchmark/{dataset}', batch_index, False,
-                                                       error_rate_str),
-                                     resize=(origin_width, origin_height))
-        # exit(0)
+            # dimension X: batch, channel*2, height, width = 1, 6, 352, 1216
+            plotter.plot_image_disparity(X[0], Y[0, 0], dataset, eval_dict,
+                                         max_disparity=max_disparity,
+                                         save_result_file=(f'{used_profile}_benchmark/{dataset}', batch_index, False,
+                                                           None),
+                                         is_benchmark=True)
+        exit(0)
         # os.system('nvidia-smi')
 
 print(f'avg loss = {np.array(losses).mean():.3f}')

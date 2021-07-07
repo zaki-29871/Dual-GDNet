@@ -14,7 +14,7 @@ height, width = 192, 384
 max_disparity = 144
 # max_disparity = 192
 version = None
-max_version = 750
+max_version = 2000
 batch = 1
 seed = 0
 loss_threshold = 10
@@ -43,16 +43,16 @@ print('Number of parameters: {:,}'.format(sum(p.numel() for p in model.parameter
 optimizer = optim.Adam(model.parameters(), lr=0.001, betas=(0.9, 0.999))
 
 if dataset == 'flyingthings3D':
-    train_dataset = FlyingThings3D((height, width), max_disparity, type='train', crop_seed=None, image=image,
+    train_dataset = FlyingThings3D(max_disparity, crop_size=(height, width), type='train', crop_seed=None, image=image,
                                    small=small_dataset)
-    test_dataset = FlyingThings3D((height, width), max_disparity, type='test', crop_seed=None, small=small_dataset)
+    test_dataset = FlyingThings3D(max_disparity, crop_size=(height, width), type='test', crop_seed=None, small=small_dataset)
 
     if not full_dataset:
         train_dataset = random_subset(train_dataset, 1920, seed=seed)
         test_dataset = random_subset(test_dataset, 480, seed=seed)
 
 elif dataset == 'KITTI_2015':
-    train_dataset, test_dataset = random_split(KITTI_2015((height, width), type='train', crop_seed=None,
+    train_dataset, test_dataset = random_split(KITTI_2015(max_disparity, crop_size=(height, width), type='train', crop_seed=None,
                                                           untexture_rate=untexture_rate), seed=seed)
 else:
     raise Exception('Cannot find dataset: ' + dataset)
