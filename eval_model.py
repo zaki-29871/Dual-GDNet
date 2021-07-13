@@ -54,8 +54,10 @@ if use_split_prduce_disparity:
         test_dataset = random_subset(test_dataset, 100, seed=seed)
 
     elif dataset == 'KITTI_2015':
+        # train_ratio=0.99 for size 2 images
         train_dataset, test_dataset = random_split(
-            KITTI_2015(max_disparity, type='train', crop_seed=0, untexture_rate=0), train_ratio=0.99,
+            KITTI_2015(max_disparity, type='train', crop_seed=0, untexture_rate=0),
+            train_ratio=0.8,
             seed=seed)
 
     elif dataset == 'KITTI_2015_benchmark':
@@ -162,4 +164,5 @@ print(f'avg error rates = {np.array(error).sum() / np.array(total_eval).sum():.2
 if merge_cost:
     print(f'avg confidence error = {np.array(confidence_error).mean():.3f}')
 print('Number of test case:', len(losses))
-print('Excel format:', f'{np.array(losses).mean():.3f}\t{np.array(losses).std():.3f}\t{np.array(error).sum() / np.array(total_eval).sum():.2%}\t{np.array(confidence_error).mean():.3f}')
+print('Excel format:',
+      f'{np.array(losses).mean():.3f}\t{np.array(losses).std():.3f}\t{np.array(error).sum() / np.array(total_eval).sum():.2%}\t{np.array(confidence_error).mean():.3f}')

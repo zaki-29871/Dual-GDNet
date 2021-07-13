@@ -765,12 +765,11 @@ def split_prduce_disparity(used_profile, X, Y, dataset, max_disparity, split_hei
     for epe_loss, total_eval in epe_loss_and_partial_eval_list:
         block_weight = total_eval / eval_dict_full['total_eval']
         eval_dict_full['epe_loss'] += block_weight * epe_loss
+
     for confidence_error, confidence_error_pixels in confidence_error_and_partial_pixels_list:
         block_weight = confidence_error_pixels / total_confidence_error_pixels
-        print('block_weight', block_weight)
-        print('confidence_error', confidence_error)
-        eval_dict_full['CE_avg'] += block_weight * confidence_error.mean()
-    print(eval_dict_full['CE_avg'])
+        eval_dict_full['CE_avg'] += block_weight * confidence_error[:, max_disparity:].mean()
+
     eval_dict_full['CE_avg'] = float(eval_dict_full['CE_avg'])
     eval_dict_full['disp'] = eval_dict_full['disp'][0]
     return eval_dict_full
