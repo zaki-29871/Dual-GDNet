@@ -5,8 +5,8 @@ from profile import *
 from colorama import Style
 import profile
 
-# max_disparity = 192
-max_disparity = 144
+max_disparity = 192
+# max_disparity = 144
 # version = 592
 version = None
 seed = 0
@@ -14,16 +14,17 @@ lr_check = False
 max_disparity_diff = 1.5
 merge_cost = True
 candidate = False
-plot_and_save_image = False
-use_split_prduce_disparity = False
+plot_and_save_image = True
+use_split_prduce_disparity = True
 
 # [1/100 00:09.11] loss = 0.591, error rate = 5.66% 384, 960
 # [1/100 00:31.79] loss = 0.606, error rate = 5.96% 256, 960
 # [1/100 00:25.48] loss = 0.533, error rate = 5.04% 128, 960
 # [1/100 00:20.28] loss = 0.560, error rate = 5.38% 64, 960
 # [1/100 00:16.18] loss = 0.628, error rate = 5.90% 32, 960
-# split_height, split_width = 32, 960  # flyingthings3D
-split_height, split_width = 160, 1216  # KITTI 2015
+# split_height, split_width = 416, 960  # flyingthings3D GTX 1660 Ti
+# split_height, split_width = 256, 960  # flyingthings3D GTX 1660 Ti
+split_height, split_width = 192, 1216  # KITTI 2015 GTX 1660 Ti
 
 dataset = ['flyingthings3D', 'KITTI_2015', 'KITTI_2015_benchmark', 'AerialImagery']
 image = ['cleanpass', 'finalpass']  # for flyingthings3D
@@ -39,6 +40,7 @@ print('Using model:', used_profile)
 print('Using dataset:', dataset)
 print('Max disparity:', max_disparity)
 print('Number of parameters: {:,}'.format(sum(p.numel() for p in model.parameters())))
+print('Plot and save result image:', plot_and_save_image)
 print('Using split produce disparity mode:', use_split_prduce_disparity)
 
 losses = []
@@ -53,7 +55,7 @@ if use_split_prduce_disparity:
 
     elif dataset == 'KITTI_2015':
         train_dataset, test_dataset = random_split(
-            KITTI_2015(max_disparity, type='train', crop_seed=0, untexture_rate=0),
+            KITTI_2015(max_disparity, type='train', crop_seed=0, untexture_rate=0), train_ratio=0.99,
             seed=seed)
 
     elif dataset == 'KITTI_2015_benchmark':
@@ -89,8 +91,9 @@ else:
     elif dataset == 'KITTI_2015':
         height, width = 352, 1216
         # height, width = 336, 1200  # GDNet_dc6f
-        train_dataset, test_dataset = random_split(KITTI_2015((height, width), type='train', crop_seed=0, untexture_rate=0),
-                                                   seed=seed)
+        train_dataset, test_dataset = random_split(
+            KITTI_2015((height, width), type='train', crop_seed=0, untexture_rate=0),
+            seed=seed)
 
     elif dataset == 'KITTI_2015_benchmark':
         height, width = 352, 1216
@@ -159,3 +162,4 @@ print(f'avg error rates = {np.array(error).sum() / np.array(total_eval).sum():.2
 if merge_cost:
     print(f'avg confidence error = {np.array(confidence_error).mean():.3f}')
 print('Number of test case:', len(losses))
+print('Excel format:', f'{np.array(losses).mean():.3f}\t{np.array(losses).std():.3f}\t{np.array(error).sum() / np.array(total_eval).sum():.2%}\t{np.array(confidence_error).mean():.3f}')

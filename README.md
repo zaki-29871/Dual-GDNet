@@ -4,6 +4,8 @@ Neural Network Project for Ruei-Ping's Master Thesis
 *Author: Ruei-Ping Wang (Jacky)*  
 *Organizer: Yi-Chen Chen (Jack)*
 
+Size of parameter: 11,593,136
+
 ## Prerequisite
 * Windows 10 x64
 * RTX 2080 Ti

@@ -2,6 +2,9 @@ import matplotlib.pyplot as plt
 import profile
 import numpy as np
 
+import utils
+
+
 class EPE_Loss:
     def __init__(self):
         self.SGM = 7.405
@@ -12,13 +15,19 @@ class EPE_Loss:
         self.GANetSmall = 6.478
         self.CSPN = 0.78
 
+
 version = None
-trend_kernel = 50  # version (plot) + trend kernel = real model version, trend_kernel = [1, 10]
+trend_kernel = 30  # version (plot) + trend kernel = real model version, trend_kernel = [1, 10]
+trend_regression_size = trend_kernel
+trend_method = ['corr', 'regression'][1]
 epe = EPE_Loss()
 used_profile = profile.GDNet_mdc6f()
+start_version = 985
 
 version, loss_history = used_profile.load_history(version)
 print('Number of epochs:', len(loss_history['test']))
+print('Trend kernel size:', trend_kernel)
+print('Trend regression size:', trend_regression_size)
 
 if len(loss_history['test']) == 1:
     marker = 'o'
@@ -30,21 +39,30 @@ plt.title('EPE Loss')
 plt.xlabel('Epoch')
 plt.ylabel('EPE Loss')
 
-p_train = plt.plot(loss_history['train'][(trend_kernel - 1):], label='Train', marker=marker)
-p_test = plt.plot(loss_history['test'][(trend_kernel - 1):], label='Test', marker=marker)
+train_loss_history = loss_history['train'][start_version-1:]
+test_loss_history = loss_history['test'][start_version-1:]
+print('Size of loss history:', len(train_loss_history))
+
+p_train = plt.plot(train_loss_history[(trend_kernel - 1):], label='Train', marker=marker)
+p_test = plt.plot(test_loss_history[(trend_kernel - 1):], label='Test', marker=marker)
 
 if trend_kernel > 1:
-    test_loss_trend = np.array(loss_history['test'])
-    test_loss_trend = np.convolve(test_loss_trend, np.ones(trend_kernel,)) / trend_kernel
+    test_loss_trend = np.array(test_loss_history)
+    test_loss_trend = np.convolve(test_loss_trend, np.ones(trend_kernel, )) / trend_kernel
     test_loss_trend = test_loss_trend[(trend_kernel - 1):-trend_kernel + 1]
     # plt.plot(test_loss_trend, label='Test Trend', marker=marker, color=p_train[0].get_color(), linestyle='--')
     plt.plot(test_loss_trend, label='Test Trend', marker=marker)
 
-    train_loss_trend = np.array(loss_history['train'])
-    train_loss_trend = np.convolve(train_loss_trend, np.ones(trend_kernel,)) / trend_kernel
+    train_loss_trend = np.array(train_loss_history)
+    train_loss_trend = np.convolve(train_loss_trend, np.ones(trend_kernel, )) / trend_kernel
     train_loss_trend = train_loss_trend[(trend_kernel - 1):-trend_kernel + 1]
     # plt.plot(train_loss_trend, label='Train Trend', marker=marker, color=p_test[0].get_color(), linestyle='--')
     plt.plot(train_loss_trend, label='Train Trend', marker=marker)
+
+    print('Trend method:', trend_method)
+    print(f'Train loss trend: {utils.trend_regression(train_loss_trend[-trend_regression_size:], method=trend_method):.2e}')
+    print(f'Test loss trend: {utils.trend_regression(test_loss_trend[-trend_regression_size:], method=trend_method):.2e}')
+    print(f'Last test loss - train loss: {test_loss_trend[-1] - train_loss_trend[-1]:.2e}')
 
 plt.axhline(epe.SGM, color='b', linestyle='--', label='SGM (320 images)')
 plt.axhline(epe.MC_CNN, color='g', linestyle='--', label='MC_CNN')

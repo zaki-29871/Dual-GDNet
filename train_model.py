@@ -10,11 +10,12 @@ import utils
 
 # height, width = 240, 576 GDNet_mdc6f
 # height, width = 256, 512
-height, width = 192, 384
+# height, width = 192, 384 Original setting
+height, width = 224, 576  # KITTI 2015 GTX 1660 Ti
 max_disparity = 144
 # max_disparity = 192
 version = None
-max_version = 2000
+max_version = 2000  # KITTI 2015 v1497 recommended version
 batch = 1
 seed = 0
 loss_threshold = 10
@@ -26,7 +27,7 @@ dataset = ['flyingthings3D', 'KITTI_2015']
 image = ['cleanpass', 'finalpass']  # for flyingthings3D
 
 used_profile = profile.GDNet_mdc6f()
-dataset = dataset[0]
+dataset = dataset[1]
 image = image[1]
 
 model = used_profile.load_model(max_disparity, version)[1]
@@ -45,15 +46,17 @@ optimizer = optim.Adam(model.parameters(), lr=0.001, betas=(0.9, 0.999))
 if dataset == 'flyingthings3D':
     train_dataset = FlyingThings3D(max_disparity, crop_size=(height, width), type='train', crop_seed=None, image=image,
                                    small=small_dataset)
-    test_dataset = FlyingThings3D(max_disparity, crop_size=(height, width), type='test', crop_seed=None, small=small_dataset)
+    test_dataset = FlyingThings3D(max_disparity, crop_size=(height, width), type='test', crop_seed=None,
+                                  small=small_dataset)
 
     if not full_dataset:
         train_dataset = random_subset(train_dataset, 1920, seed=seed)
         test_dataset = random_subset(test_dataset, 480, seed=seed)
 
 elif dataset == 'KITTI_2015':
-    train_dataset, test_dataset = random_split(KITTI_2015(max_disparity, crop_size=(height, width), type='train', crop_seed=None,
-                                                          untexture_rate=untexture_rate), seed=seed)
+    train_dataset, test_dataset = random_split(
+        KITTI_2015(max_disparity, crop_size=(height, width), type='train', crop_seed=None,
+                   untexture_rate=untexture_rate), seed=seed)
 else:
     raise Exception('Cannot find dataset: ' + dataset)
 
@@ -133,8 +136,8 @@ for v in range(version, max_version + 1):
             utils.tic()
             if isinstance(used_profile, profile.GDNet_mdc6):
                 eval_dict = used_profile.eval(X, Y, dataset, merge_cost=False, lr_check=False, candidate=False,
-                                         regression=True,
-                                         penalize=False, slope=1, max_disparity_diff=1.5)
+                                              regression=True,
+                                              penalize=False, slope=1, max_disparity_diff=1.5)
             else:
                 eval_dict = used_profile.eval(X, Y, dataset)
 

@@ -9,6 +9,7 @@ from colorama import Fore, Style
 import sys
 import pickle
 import datetime
+import math
 
 
 def print_progress(message, rate):
@@ -667,10 +668,10 @@ def split_prduce_disparity(used_profile, X, Y, dataset, max_disparity, split_hei
     """
 
     origin_height = X.shape[2]
-    number_of_height_block = origin_height // split_height + 1
+    number_of_height_block = math.ceil(origin_height / split_height)
 
     origin_width = X.shape[3]
-    number_of_width_block = origin_width // split_width + 1
+    number_of_width_block = math.ceil(origin_width / split_width)
 
     assert split_height <= origin_height
     assert origin_width <= origin_width
@@ -757,18 +758,39 @@ def split_prduce_disparity(used_profile, X, Y, dataset, max_disparity, split_hei
             eval_dict_full['error_sum'] += eval_dict['error_sum']
             eval_dict_full['total_eval'] += eval_dict['total_eval']
             epe_loss_and_partial_eval_list.append((eval_dict['epe_loss'], eval_dict['total_eval']))
-            confidence_error_pixels = int(eval_dict_full['confidence_error'][:, max_disparity:].reshape(-1).size(0))
+            confidence_error_pixels = np.int64(eval_dict_full['confidence_error'][:, max_disparity:].reshape(-1).size(0))
             total_confidence_error_pixels += confidence_error_pixels
-            confidence_error_and_partial_pixels_list.append(
-                (eval_dict_full['confidence_error'], confidence_error_pixels))
+            confidence_error_and_partial_pixels_list.append((eval_dict_full['confidence_error'], confidence_error_pixels))
 
     for epe_loss, total_eval in epe_loss_and_partial_eval_list:
         block_weight = total_eval / eval_dict_full['total_eval']
         eval_dict_full['epe_loss'] += block_weight * epe_loss
-
     for confidence_error, confidence_error_pixels in confidence_error_and_partial_pixels_list:
         block_weight = confidence_error_pixels / total_confidence_error_pixels
-        eval_dict_full['CE_avg'] += block_weight * eval_dict['confidence_error'][:,
-                                                                     max_disparity:].mean()
+        print('block_weight', block_weight)
+        print('confidence_error', confidence_error)
+        eval_dict_full['CE_avg'] += block_weight * confidence_error.mean()
+    print(eval_dict_full['CE_avg'])
+    eval_dict_full['CE_avg'] = float(eval_dict_full['CE_avg'])
     eval_dict_full['disp'] = eval_dict_full['disp'][0]
     return eval_dict_full
+
+def trend_regression(loss_trend, method='corr'):
+    """Loss descent checking"""
+    if method == 'regression':
+        # y = ax + b
+        b = loss_trend.reshape(-1, 1)
+        A = np.concatenate([np.arange(len(b)).reshape(-1, 1), np.ones((len(b), 1))], axis=1)
+        x = np.linalg.inv(A.T.dot(A)).dot(A.T).dot(b)
+        return float(x[0, 0])
+
+    elif method == 'corr':
+        A = loss_trend
+        B = np.arange(len(A))
+        corr = np.corrcoef(A, B)[0, 1]
+        return corr
+
+    else:
+        raise Exception(f'Method "{method}" is not valid')
+
+
