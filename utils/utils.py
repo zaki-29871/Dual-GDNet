@@ -689,7 +689,6 @@ def split_prduce_disparity(used_profile, X, Y, dataset, max_disparity, split_hei
 
     for h in range(number_of_height_block):
         for w in range(number_of_width_block):
-            print('process h w', h, w)
             X_block = None
             Y_block = None
 

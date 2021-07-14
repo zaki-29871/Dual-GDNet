@@ -148,7 +148,7 @@ class KITTI_2015(Dataset):
             else:
                 X1 = cv2.imread(os.path.join(self.root, 'image_2/{:06d}_10.png'.format(index)))
                 X2 = cv2.imread(os.path.join(self.root, 'image_3/{:06d}_10.png'.format(index)))
-                Y = cv2.imread(os.path.join(self.root, 'disp_occ_0/{:06d}_10.png'.format(index)))
+                Y = cv2.imread(os.path.join(self.root, 'disp_occ_0/{:06d}_10.png'.format(index)))  # (376, 1241, 3) uint8
 
                 X1 = utils.rgb2bgr(X1)
                 X2 = utils.rgb2bgr(X2)

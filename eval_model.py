@@ -95,6 +95,7 @@ else:
         # height, width = 336, 1200  # GDNet_dc6f
         train_dataset, test_dataset = random_split(
             KITTI_2015((height, width), type='train', crop_seed=0, untexture_rate=0),
+            train_ratio=0.8,
             seed=seed)
 
     elif dataset == 'KITTI_2015_benchmark':

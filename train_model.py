@@ -10,8 +10,8 @@ import utils
 
 # height, width = 240, 576 GDNet_mdc6f
 # height, width = 256, 512
-# height, width = 192, 384 Original setting
-height, width = 224, 576  # KITTI 2015 GTX 1660 Ti
+height, width = 192, 384  # Original setting
+# height, width = 224, 576  # KITTI 2015 GTX 1660 Ti
 max_disparity = 144
 # max_disparity = 192
 version = None
@@ -84,6 +84,8 @@ for v in range(version, max_version + 1):
     print('Start training, version = {}'.format(v))
     model.train()
     for batch_index, (X, Y) in enumerate(train_loader):
+        if torch.all(Y == 0):
+            continue
         utils.tic()
         if isinstance(used_profile, profile.GDNet_mdc6f):
             optimizer.zero_grad()
@@ -132,6 +134,8 @@ for v in range(version, max_version + 1):
     print('Start testing, version = {}'.format(v))
     model.eval()
     for batch_index, (X, Y) in enumerate(test_loader):
+        if torch.all(Y == 0):
+            continue
         with torch.no_grad():
             utils.tic()
             if isinstance(used_profile, profile.GDNet_mdc6):
