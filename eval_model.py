@@ -5,8 +5,8 @@ from profile import *
 from colorama import Style
 import profile
 
-max_disparity = 192
-# max_disparity = 144
+max_disparity = 192  # KITTI, 2015
+# max_disparity = 144  # flyingthings3D
 # version = 592
 version = None
 seed = 0
@@ -17,21 +17,18 @@ candidate = False
 plot_and_save_image = True
 use_split_prduce_disparity = True
 
-# [1/100 00:09.11] loss = 0.591, error rate = 5.66% 384, 960
-# [1/100 00:31.79] loss = 0.606, error rate = 5.96% 256, 960
-# [1/100 00:25.48] loss = 0.533, error rate = 5.04% 128, 960
-# [1/100 00:20.28] loss = 0.560, error rate = 5.38% 64, 960
-# [1/100 00:16.18] loss = 0.628, error rate = 5.90% 32, 960
-# split_height, split_width = 416, 960  # flyingthings3D GTX 1660 Ti
 # split_height, split_width = 256, 960  # flyingthings3D GTX 1660 Ti
-split_height, split_width = 192, 1216  # KITTI 2015 GTX 1660 Ti
+# split_height, split_width = 416, 960  # flyingthings3D GTX 1660 Ti
+split_height, split_width = 352, 960  # KITTI, 2015 GTX 1660 Ti
+# split_height, split_width = 192, 1216  # KITTI 2015 GTX 1660 Ti
 
 dataset = ['flyingthings3D', 'KITTI_2015', 'KITTI_2015_benchmark', 'AerialImagery']
 image = ['cleanpass', 'finalpass']  # for flyingthings3D
 
 used_profile = profile.GDNet_mdc6f()
 dataset = dataset[1]
-image = image[1]
+if dataset == 'flyingthings3D':
+    image = image[1]
 
 model = used_profile.load_model(max_disparity, version)[1]
 version, loss_history = used_profile.load_history(version)
@@ -50,18 +47,18 @@ total_eval = []
 
 if use_split_prduce_disparity:
     if dataset == 'flyingthings3D':
-        test_dataset = FlyingThings3D(max_disparity, type='test', crop_seed=0, image=image)
+        test_dataset = FlyingThings3D(max_disparity, type='test', image=image)
         test_dataset = random_subset(test_dataset, 100, seed=seed)
 
     elif dataset == 'KITTI_2015':
         # train_ratio=0.99 for size 2 images
         train_dataset, test_dataset = random_split(
-            KITTI_2015(max_disparity, type='train', crop_seed=0, untexture_rate=0),
+            KITTI_2015(max_disparity, type='train', untexture_rate=0),
             train_ratio=0.8,
             seed=seed)
 
     elif dataset == 'KITTI_2015_benchmark':
-        test_dataset = KITTI_2015(max_disparity, type='test', crop_seed=0)
+        test_dataset = KITTI_2015(max_disparity, type='test')
 
     elif dataset == 'AerialImagery':
         test_dataset = AerialImagery()

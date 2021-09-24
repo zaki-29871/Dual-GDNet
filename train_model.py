@@ -7,11 +7,12 @@ import profile
 import numpy as np
 import os
 import utils
+import traceback
 
 # height, width = 240, 576 GDNet_mdc6f
 # height, width = 256, 512
-height, width = 192, 384  # Original setting
-# height, width = 224, 576  # KITTI 2015 GTX 1660 Ti
+# height, width = 192, 384  # Original setting, 384 - 144 = 240
+height, width = 192, 576  # KITTI 2015 GTX 1660 Ti, 576 - 144 = 432
 max_disparity = 144
 # max_disparity = 192
 version = None
@@ -25,10 +26,12 @@ is_plot_image = False
 untexture_rate = 0
 dataset = ['flyingthings3D', 'KITTI_2015']
 image = ['cleanpass', 'finalpass']  # for flyingthings3D
+exception_count = 0
 
 used_profile = profile.GDNet_mdc6f()
 dataset = dataset[1]
-image = image[1]
+if dataset == 'flyingthings3D':
+    image = image[1]
 
 model = used_profile.load_model(max_disparity, version)[1]
 version, loss_history = used_profile.load_history(version)
@@ -65,112 +68,124 @@ print('Number of testing data:', len(test_dataset))
 os.system('nvidia-smi')
 
 # 5235 MB
-for v in range(version, max_version + 1):
-    if dataset == 'flyingthings3D':
-        train_loader = DataLoader(random_subset(train_dataset, 192), batch_size=batch, shuffle=False)
-        test_loader = DataLoader(random_subset(test_dataset, 48), batch_size=batch, shuffle=False)
+v = version
+while v < max_version + 1:
+    try:
+        print('Exception count:', exception_count)
+        if dataset == 'flyingthings3D':
+            train_loader = DataLoader(random_subset(train_dataset, 192), batch_size=batch, shuffle=False)
+            test_loader = DataLoader(random_subset(test_dataset, 48), batch_size=batch, shuffle=False)
 
-    elif dataset == 'KITTI_2015':
-        train_loader = DataLoader(random_subset(train_dataset, 160), batch_size=batch, shuffle=False)
-        test_loader = DataLoader(random_subset(test_dataset, 40), batch_size=batch, shuffle=False)
-    else:
-        raise Exception('Cannot find dataset: ' + dataset)
-
-    train_loss = []
-    test_loss = []
-    error = []
-    total_eval = []
-
-    print('Start training, version = {}'.format(v))
-    model.train()
-    for batch_index, (X, Y) in enumerate(train_loader):
-        if torch.all(Y == 0):
-            continue
-        utils.tic()
-        if isinstance(used_profile, profile.GDNet_mdc6f):
-            optimizer.zero_grad()
-            train_dict0 = used_profile.train(X, Y, dataset, flip=False)
-            train_dict0['loss'].backward()
-            optimizer.step()
-
-            optimizer.zero_grad()
-            train_dict1 = used_profile.train(X, Y, dataset, flip=True)
-            train_dict1['loss'].backward()
-            optimizer.step()
-
-            wl = width / (2 * width - max_disparity)
-            wr = (width - max_disparity) / (2 * width - max_disparity)
-
-            loss = wl * train_dict0['loss'] + wr * train_dict1['loss']
-            epe_loss = wl * train_dict0['epe_loss'] + wr * train_dict1['epe_loss']
-            train_dict = train_dict0
+        elif dataset == 'KITTI_2015':
+            train_loader = DataLoader(random_subset(train_dataset, 160), batch_size=batch, shuffle=False)
+            test_loader = DataLoader(random_subset(test_dataset, 40), batch_size=batch, shuffle=False)
         else:
-            optimizer.zero_grad()
-            train_dict = used_profile.train(X, Y, dataset)
-            train_dict['loss'].backward()
-            loss = train_dict['loss']
-            epe_loss = train_dict['epe_loss']
-            optimizer.step()
+            raise Exception('Cannot find dataset: ' + dataset)
 
-        train_loss.append(float(epe_loss))
+        train_loss = []
+        test_loss = []
+        error = []
+        total_eval = []
 
-        time = utils.timespan_str(utils.toc(True))
-        loss_str = f'loss = {utils.threshold_color(loss)}{loss:.3f}{Style.RESET_ALL}'
-        epe_loss_str = f'epe_loss = {utils.threshold_color(epe_loss)}{epe_loss:.3f}{Style.RESET_ALL}'
-        print(f'[{batch_index + 1}/{len(train_loader)} {time}] {loss_str}, {epe_loss_str}')
-
-        if is_plot_image:
-            plotter = utils.CostPlotter()
-            plotter.plot_image_disparity(X[0], Y[0, 0], dataset, train_dict,
-                                         max_disparity=max_disparity)
-
-        if torch.isnan(loss):
-            print('detect loss nan in training')
-            exit(0)
-
-    train_loss = float(torch.tensor(train_loss).mean())
-    print(f'Avg train loss = {utils.threshold_color(train_loss)}{train_loss:.3f}{Style.RESET_ALL}')
-
-    print('Start testing, version = {}'.format(v))
-    model.eval()
-    for batch_index, (X, Y) in enumerate(test_loader):
-        if torch.all(Y == 0):
-            continue
-        with torch.no_grad():
+        print('Start training, version = {}'.format(v))
+        model.train()
+        for batch_index, (X, Y) in enumerate(train_loader):
+            if torch.all(Y == 0):
+                print('Detect Y are all zero')
+                continue
             utils.tic()
-            if isinstance(used_profile, profile.GDNet_mdc6):
-                eval_dict = used_profile.eval(X, Y, dataset, merge_cost=False, lr_check=False, candidate=False,
-                                              regression=True,
-                                              penalize=False, slope=1, max_disparity_diff=1.5)
+            if isinstance(used_profile, profile.GDNet_mdc6f):
+                optimizer.zero_grad()
+                train_dict0 = used_profile.train(X, Y, dataset, flip=False)
+                train_dict0['loss'].backward()
+                optimizer.step()
+
+                optimizer.zero_grad()
+                train_dict1 = used_profile.train(X, Y, dataset, flip=True)
+                train_dict1['loss'].backward()
+                optimizer.step()
+
+                wl = width / (2 * width - max_disparity)
+                wr = (width - max_disparity) / (2 * width - max_disparity)
+
+                loss = wl * train_dict0['loss'] + wr * train_dict1['loss']
+                epe_loss = wl * train_dict0['epe_loss'] + wr * train_dict1['epe_loss']
+                train_dict = train_dict0
             else:
-                eval_dict = used_profile.eval(X, Y, dataset)
+                optimizer.zero_grad()
+                train_dict = used_profile.train(X, Y, dataset)
+                train_dict['loss'].backward()
+                loss = train_dict['loss']
+                epe_loss = train_dict['epe_loss']
+                optimizer.step()
+
+            train_loss.append(float(epe_loss))
 
             time = utils.timespan_str(utils.toc(True))
-            loss_str = f'epe loss = {utils.threshold_color(eval_dict["epe_loss"])}{eval_dict["epe_loss"]:.3f}{Style.RESET_ALL}'
-            error_rate_str = f'error rate = {eval_dict["error_sum"] / eval_dict["total_eval"]:.2%}'
-            print(f'[{batch_index + 1}/{len(test_loader)} {time}] {loss_str}, {error_rate_str}')
-
-            test_loss.append(float(eval_dict["epe_loss"]))
-            error.append(float(eval_dict["error_sum"]))
-            total_eval.append(float(eval_dict["total_eval"]))
+            loss_str = f'loss = {utils.threshold_color(loss)}{loss:.3f}{Style.RESET_ALL}'
+            epe_loss_str = f'epe_loss = {utils.threshold_color(epe_loss)}{epe_loss:.3f}{Style.RESET_ALL}'
+            print(f'[{batch_index + 1}/{len(train_loader)} {time}] {loss_str}, {epe_loss_str}')
 
             if is_plot_image:
                 plotter = utils.CostPlotter()
-                plotter.plot_image_disparity(X[0], Y[0, 0], dataset, eval_dict,
+                plotter.plot_image_disparity(X[0], Y[0, 0], dataset, train_dict,
                                              max_disparity=max_disparity)
 
-            if torch.isnan(eval_dict["epe_loss"]):
-                print('detect loss nan in testing')
+            if torch.isnan(loss):
+                print('detect loss nan in training')
                 exit(0)
 
-    test_loss = float(torch.tensor(test_loss).mean())
-    test_error_rate = np.array(error).sum() / np.array(total_eval).sum()
-    loss_str = f'epe loss = {utils.threshold_color(test_loss)}{test_loss:.3f}{Style.RESET_ALL}'
-    error_rate_str = f'error rate = {test_error_rate:.2%}'
-    print(f'Avg {loss_str}, {error_rate_str}')
+        train_loss = float(torch.tensor(train_loss).mean())
+        print(f'Avg train loss = {utils.threshold_color(train_loss)}{train_loss:.3f}{Style.RESET_ALL}')
 
-    loss_history['train'].append(train_loss)
-    loss_history['test'].append(test_loss)
+        print('Start testing, version = {}'.format(v))
+        model.eval()
+        for batch_index, (X, Y) in enumerate(test_loader):
+            if torch.all(Y == 0):
+                print('Detect Y are all zero')
+                continue
+            with torch.no_grad():
+                utils.tic()
+                if isinstance(used_profile, profile.GDNet_mdc6):
+                    eval_dict = used_profile.eval(X, Y, dataset, merge_cost=False, lr_check=False, candidate=False,
+                                                  regression=True,
+                                                  penalize=False, slope=1, max_disparity_diff=1.5)
+                else:
+                    eval_dict = used_profile.eval(X, Y, dataset)
 
-    print('Start save model')
-    used_profile.save_version(model, loss_history, v)
+                time = utils.timespan_str(utils.toc(True))
+                loss_str = f'epe loss = {utils.threshold_color(eval_dict["epe_loss"])}{eval_dict["epe_loss"]:.3f}{Style.RESET_ALL}'
+                error_rate_str = f'error rate = {eval_dict["error_sum"] / eval_dict["total_eval"]:.2%}'
+                print(f'[{batch_index + 1}/{len(test_loader)} {time}] {loss_str}, {error_rate_str}')
+
+                test_loss.append(float(eval_dict["epe_loss"]))
+                error.append(float(eval_dict["error_sum"]))
+                total_eval.append(float(eval_dict["total_eval"]))
+
+                if is_plot_image:
+                    plotter = utils.CostPlotter()
+                    plotter.plot_image_disparity(X[0], Y[0, 0], dataset, eval_dict,
+                                                 max_disparity=max_disparity)
+
+                if torch.isnan(eval_dict["epe_loss"]):
+                    print('detect loss nan in testing')
+                    exit(0)
+
+        test_loss = float(torch.tensor(test_loss).mean())
+        test_error_rate = np.array(error).sum() / np.array(total_eval).sum()
+        loss_str = f'epe loss = {utils.threshold_color(test_loss)}{test_loss:.3f}{Style.RESET_ALL}'
+        error_rate_str = f'error rate = {test_error_rate:.2%}'
+        print(f'Avg {loss_str}, {error_rate_str}')
+
+        loss_history['train'].append(train_loss)
+        loss_history['test'].append(test_loss)
+
+        print('Start save model')
+        used_profile.save_version(model, loss_history, v)
+        v += 1
+
+    except Exception as err:
+        # traceback.format_exc()  # Traceback string
+        traceback.print_exc()
+        exception_count += 1
+        v -= 1

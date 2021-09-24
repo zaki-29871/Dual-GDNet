@@ -657,13 +657,14 @@ def flip_X(X, Y):
     return X, Y
 
 
-def split_prduce_disparity(used_profile, X, Y, dataset, max_disparity, split_height, split_width, merge_cost=False, lr_check=False,
+def split_prduce_disparity(used_profile, X, Y, dataset, max_disparity, split_height, split_width, merge_cost=False,
+                           lr_check=False,
                            candidate=False,
                            regression=True, penalize=False,
                            slope=1, max_disparity_diff=1.5):
     """
     :param used_profile: neural network model's profile
-    :param X: tow contacted images
+    :param X: two concated images
     :return: eval_dict (full)
     """
 
@@ -757,9 +758,11 @@ def split_prduce_disparity(used_profile, X, Y, dataset, max_disparity, split_hei
             eval_dict_full['error_sum'] += eval_dict['error_sum']
             eval_dict_full['total_eval'] += eval_dict['total_eval']
             epe_loss_and_partial_eval_list.append((eval_dict['epe_loss'], eval_dict['total_eval']))
-            confidence_error_pixels = np.int64(eval_dict_full['confidence_error'][:, max_disparity:].reshape(-1).size(0))
+            confidence_error_pixels = np.int64(
+                eval_dict_full['confidence_error'][:, max_disparity:].reshape(-1).size(0))
             total_confidence_error_pixels += confidence_error_pixels
-            confidence_error_and_partial_pixels_list.append((eval_dict_full['confidence_error'], confidence_error_pixels))
+            confidence_error_and_partial_pixels_list.append(
+                (eval_dict_full['confidence_error'], confidence_error_pixels))
 
     for epe_loss, total_eval in epe_loss_and_partial_eval_list:
         block_weight = total_eval / eval_dict_full['total_eval']
@@ -772,6 +775,7 @@ def split_prduce_disparity(used_profile, X, Y, dataset, max_disparity, split_hei
     eval_dict_full['CE_avg'] = float(eval_dict_full['CE_avg'])
     eval_dict_full['disp'] = eval_dict_full['disp'][0]
     return eval_dict_full
+
 
 def trend_regression(loss_trend, method='corr'):
     """Loss descent checking"""
@@ -790,5 +794,3 @@ def trend_regression(loss_trend, method='corr'):
 
     else:
         raise Exception(f'Method "{method}" is not valid')
-
-

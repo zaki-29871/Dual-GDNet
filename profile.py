@@ -104,6 +104,7 @@ class GANet_small(Profile):
     def get_model(self, max_disparity):
         return ganet_small.GANetSmall(max_disparity)
 
+
 class GANet_small_deep(Profile):
     def get_model(self, max_disparity):
         return ganet_small_deep.GANet_small_deep(max_disparity)
@@ -288,6 +289,7 @@ class GDNet_md6(Profile):
             'disp': disp.float(),
         }
 
+
 class GDNet_mdc6(GDNet_c):
     def get_model(self, max_disparity):
         GDNet_c.get_model(self, max_disparity)
@@ -300,7 +302,7 @@ class GDNet_mdc6(GDNet_c):
 
         return train_dict
 
-    def eval(self, X, Y, dataset, merge_cost=False, lr_check=False, candidate=False, regression=True, penalize=False,
+    def eval(self, X, Y, dataset, merge_cost=True, lr_check=False, candidate=False, regression=True, penalize=False,
              slope=1, max_disparity_diff=1.5):
         assert not (merge_cost and lr_check), 'do not use merge cost and lr check at the same time'
         assert not (candidate and lr_check), 'do not use candidate error rate and lr check at the same time'
@@ -329,7 +331,7 @@ class GDNet_mdc6(GDNet_c):
         if merge_cost:
             cost_merge = cost_process_left.clone()
             flip_cost = GDNet.function.FlipCost.apply(cost_process_right)
-            confidence_error = disparity_confidence(cost_left, flip_cost)
+            confidence_error = disparity_confidence_gpu(cost_left, flip_cost)
             average_confidence_error = confidence_error[:, self.max_disparity:].mean()
             cost_merge[..., self.max_disparity:] = (cost_merge[..., self.max_disparity:] + flip_cost[...,
                                                                                            self.max_disparity:]) / 2
@@ -417,6 +419,53 @@ class GDNet_mdc6(GDNet_c):
             'disp': disp_left.float(),
         }
 
+    def eval_cpu(self, X, Y, dataset, height, width, margin_full=0xff, merge_cost=True):
+        origin_height, origin_width = X[:, 0:3, :, :].size()[2:4]
+        assert not self.model.training
+        assert origin_height < height and origin_width < width
+        Y = Y[:, 0, :, :]
+        X_temp = torch.full((1, 6, height, width), margin_full, dtype=torch.float32).to(X.device)
+        X_temp[:, :, :origin_height, :origin_width] = X[...]
+        X = X_temp
+        # torch.cuda.empty_cache()
+
+        # Calculate cost
+        self.model.flip = False
+        cost_left = self.model(X[:, 0:3, :, :], X[:, 3:6, :, :]).data.cpu().numpy()
+
+        if merge_cost:
+            self.model.flip = True
+            cost_right = self.model(X[:, 0:3, :, :], X[:, 3:6, :, :]).data.cpu().numpy()
+            cost_merge = cost_left
+            flip_cost = GDNet.function.FlipCost.apply(cost_right)
+            confidence_error = disparity_confidence_cpu(cost_left, flip_cost)
+            average_confidence_error = confidence_error[:, self.max_disparity:].mean()
+            cost_merge[..., self.max_disparity:] += flip_cost[..., self.max_disparity:]
+            cost_merge[..., self.max_disparity:] /= 2
+            disp_max_left = torch.argmax(cost_merge, dim=1).float()
+
+            # Suppress Regression
+            cost = F.softmax(cost_merge, dim=1)
+            squeeze_mask, cost = self.squeeze_cost_grad(cost, disp_max_left)
+            disp_left = self.disparity(cost)
+
+        # Evaluation
+        mask = utils.y_mask(Y, self.max_disparity, dataset)
+        epe_loss = utils.EPE_loss(disp_left[mask], Y[mask])
+        error_sum = utils.error_rate(disp_left[mask], Y[mask], dataset)
+
+        return {
+            'error_sum': error_sum,
+            'total_eval': mask.float().sum(),
+            'epe_loss': epe_loss,
+            'cost_left': cost_left,
+            'flip_cost': flip_cost,
+            'cost_merge': cost_merge,
+            'confidence_error': confidence_error,
+            'CE_avg': average_confidence_error,
+            'disp': disp_left.float(),
+        }
+
 
 class GDNet_mdc6f(GDNet_mdc6):
     def get_model(self, max_disparity):
@@ -438,15 +487,18 @@ class GDNet_mdc4(GDNet_c):
         GDNet_c.get_model(self, max_disparity)
         return GDNet.GDNet_mdc4.GDNet_mdc4(max_disparity)
 
+
 class GDNet_dc6(GDNet_mdc6):
     def get_model(self, max_disparity):
         GDNet_c.get_model(self, max_disparity)
         return GDNet.GDNet_dc6.GDNet_dc6(max_disparity)
 
+
 class GDNet_dc6f(GDNet_mdc6f):
     def get_model(self, max_disparity):
         GDNet_c.get_model(self, max_disparity)
         return GDNet.GDNet_dc6f.GDNet_dc6f(max_disparity)
+
 
 def penalize_cost_by_impossible(cost):
     impossible = torch.argmin(cost, dim=1).unsqueeze(1)
@@ -469,7 +521,17 @@ def penalize_cost_by_disparity(cost, p):
     return cost_penalize
 
 
-def disparity_confidence(cost, flip_cost):
+def disparity_confidence_gpu(cost, flip_cost):
+    disp = torch.argmax(cost, dim=1).unsqueeze(1)
+    mask = torch.zeros(cost.size(), dtype=torch.bool).to(cost.device)
+    mask.scatter_(1, disp, 1)
+    # ((cost - flip_cost).abs() * mask) torch.Size([1, 192, 160, 1216])
+    confidence = ((cost - flip_cost).abs() * mask).sum(dim=1)
+    confidence[:, :, :cost.size(1)] = 0
+    return confidence
+
+
+def disparity_confidence_cpu(cost, flip_cost):
     disp = torch.argmax(cost, dim=1).unsqueeze(1)
     mask = torch.zeros(cost.size(), dtype=torch.bool).to(cost.device)
     mask.scatter_(1, disp, 1)

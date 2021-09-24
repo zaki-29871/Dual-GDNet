@@ -208,7 +208,7 @@ class KITTI_2015_benchmark(Dataset):
         X2 = cv2.imread(os.path.join(self.root, 'image_3/{:06d}_10.png'.format(index)))
         origin_height, origin_width = X1.shape[:2]
 
-        print('KITTI 2015 original height and width:', origin_height, origin_width)
+        # print('KITTI 2015 original height and width:', origin_height, origin_width)
 
         # print(cv2.imread(f'D:/Dataset/KITTI 2015/training/disp_noc_0/{index:06d}_10.png')[250:, 250:])
 

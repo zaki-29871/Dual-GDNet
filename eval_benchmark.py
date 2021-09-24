@@ -14,9 +14,13 @@ max_disparity_diff = 1.5
 merge_cost = True
 candidate = False
 plot_and_save_image = True
-use_split_prduce_disparity = True
-split_height = 160
-split_width = 1216
+use_split_prduce_disparity = False
+use_margin_prduce_disparity = True
+split_height, split_width = 352, 960  # KITTI, 2015 GTX 1660 Ti
+# split_height, split_width = 192, 1216  # KITTI 2015 GTX 1660 Ti
+margin_height, margin_width = 384, 1248  # KITTI 2015 GTX 1660 Ti
+
+assert use_split_prduce_disparity ^ use_margin_prduce_disparity, 'Just can use one setting'
 
 used_profile = profile.GDNet_mdc6f()
 dataset = 'KITTI_2015_benchmark'
@@ -30,6 +34,7 @@ print('Using dataset:', dataset)
 print('Max disparity:', max_disparity)
 print('Number of parameters: {:,}'.format(sum(p.numel() for p in model.parameters())))
 print('Using split produce disparity mode:', use_split_prduce_disparity)
+print('Using large margin produce disparity mode:', use_margin_prduce_disparity)
 
 losses = []
 error = []
@@ -52,6 +57,9 @@ for batch_index, (X, Y, origin_height, origin_width) in enumerate(test_loader):
                                                      candidate=candidate,
                                                      regression=True,
                                                      penalize=False, slope=1, max_disparity_diff=1.5)
+        elif use_margin_prduce_disparity:
+            eval_dict = used_profile.eval_cpu(X, Y, dataset, margin_height, margin_width, margin_full=0xff,
+                                              merge_cost=merge_cost)
         else:
             eval_dict = used_profile.eval(X, Y, dataset, merge_cost=merge_cost, lr_check=False, candidate=candidate,
                                           regression=True,
@@ -83,7 +91,7 @@ for batch_index, (X, Y, origin_height, origin_width) in enumerate(test_loader):
                                          save_result_file=(f'{used_profile}_benchmark/{dataset}', batch_index, False,
                                                            None),
                                          is_benchmark=True)
-        exit(0)
+        # exit(0)
         # os.system('nvidia-smi')
 
 print(f'avg loss = {np.array(losses).mean():.3f}')
