@@ -29,7 +29,7 @@ image = ['cleanpass', 'finalpass']  # for flyingthings3D
 exception_count = 0
 
 used_profile = profile.GDNet_mdc6f()
-dataset = dataset[1]
+dataset = dataset[0]
 if dataset == 'flyingthings3D':
     image = image[1]
 

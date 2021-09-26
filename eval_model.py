@@ -5,8 +5,8 @@ from profile import *
 from colorama import Style
 import profile
 
-max_disparity = 192  # KITTI, 2015
-# max_disparity = 144  # flyingthings3D
+# max_disparity = 192  # KITTI, 2015
+max_disparity = 144  # flyingthings3D
 # version = 592
 version = None
 seed = 0
@@ -18,15 +18,15 @@ plot_and_save_image = True
 use_split_prduce_disparity = True
 
 # split_height, split_width = 256, 960  # flyingthings3D GTX 1660 Ti
-# split_height, split_width = 416, 960  # flyingthings3D GTX 1660 Ti
-split_height, split_width = 352, 960  # KITTI, 2015 GTX 1660 Ti
+split_height, split_width = 416, 960  # flyingthings3D GTX 1660 Ti
+# split_height, split_width = 352, 960  # KITTI, 2015 GTX 1660 Ti
 # split_height, split_width = 192, 1216  # KITTI 2015 GTX 1660 Ti
 
 dataset = ['flyingthings3D', 'KITTI_2015', 'KITTI_2015_benchmark', 'AerialImagery']
 image = ['cleanpass', 'finalpass']  # for flyingthings3D
 
 used_profile = profile.GDNet_mdc6f()
-dataset = dataset[1]
+dataset = dataset[0]
 if dataset == 'flyingthings3D':
     image = image[1]
 

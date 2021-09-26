@@ -1,0 +1,11 @@
+numpy
+matplotlib
+scipy
+pandas
+opencv-contrib-python
+colorama
+Pillow
+requests
+beautifulsoup4
+scikit-learn
+sympy

@@ -9,7 +9,7 @@ import numpy as np
 
 class FlyingThings3D(Dataset):
     # ROOT = '/media/jack/data/Dataset/pytorch/flyingthings3d'
-    ROOT = r'G:\Dataset\pytorch\flyingthings3d'
+    ROOT = r'E:\Dataset\pytorch\flyingthings3d'
 
     # height, width = 540, 960
 
@@ -102,7 +102,7 @@ class FlyingThings3D(Dataset):
 
 
 class KITTI_2015(Dataset):
-    ROOT = r'G:\Dataset\KITTI 2015'
+    ROOT = r'E:\Dataset\KITTI 2015'
 
     # KITTI 2015 original height and width (375, 1242, 3), dtype uint8
     # height and width: (370, 1224) is the smallest size

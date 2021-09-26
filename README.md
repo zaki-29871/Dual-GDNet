@@ -59,6 +59,7 @@ Disparity with float32 must multiply 256 for uint16 format
 | ----------- | ------ | ------ | ------------- |
 | GDNet_mdc6  | mod 32 | mod 32 | mod 16        |
 | GDNet_mdc6f | mod 32 | mod 32 | mod 16        |
+
 ### Evaluation
 | Name           | Height | Width | Max disparity |
 | -------------- | ------ | ----- | ------------- |
