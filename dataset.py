@@ -9,7 +9,7 @@ import numpy as np
 
 class FlyingThings3D(Dataset):
     # ROOT = '/media/jack/data/Dataset/pytorch/flyingthings3d'
-    ROOT = r'E:\Dataset\pytorch\flyingthings3d'
+    ROOT = r'F:\Dataset\pytorch\flyingthings3d'
 
     # height, width = 540, 960
 
@@ -102,7 +102,7 @@ class FlyingThings3D(Dataset):
 
 
 class KITTI_2015(Dataset):
-    ROOT = r'E:\Dataset\KITTI 2015'
+    ROOT = r'F:\Dataset\KITTI 2015'
 
     # KITTI 2015 original height and width (375, 1242, 3), dtype uint8
     # height and width: (370, 1224) is the smallest size
@@ -199,9 +199,12 @@ class KITTI_2015_benchmark(Dataset):
     # HEIGHT, WIDTH = 352, 1216  # GTX 2080 Ti
     # HEIGHT, WIDTH = 256, 1248  # GTX 1660 Ti
 
-    def __init__(self):
+    def __init__(self, use_resize=False, resize_height=None, resize_width=None):
         assert os.path.exists(self.ROOT), 'Dataset path is not exist'
         self.root = os.path.join(self.ROOT, 'testing')
+        self.use_resize = use_resize
+        self.resize_height = resize_height
+        self.resize_width = resize_width
 
     def __getitem__(self, index):
         X1 = cv2.imread(os.path.join(self.root, 'image_2/{:06d}_10.png'.format(index)))
@@ -212,8 +215,11 @@ class KITTI_2015_benchmark(Dataset):
 
         # print(cv2.imread(f'D:/Dataset/KITTI 2015/training/disp_noc_0/{index:06d}_10.png')[250:, 250:])
 
-        # X1 = cv2.resize(X1, (self.WIDTH, self.HEIGHT))
-        # X2 = cv2.resize(X2, (self.WIDTH, self.HEIGHT))
+        if self.use_resize:
+            # X1 = cv2.resize(X1, (self.WIDTH, self.HEIGHT))
+            # X2 = cv2.resize(X2, (self.WIDTH, self.HEIGHT))
+            X1 = cv2.resize(X1, (self.resize_width, self.resize_height))
+            X2 = cv2.resize(X2, (self.resize_width, self.resize_height))
 
         X1 = utils.rgb2bgr(X1)
         X2 = utils.rgb2bgr(X2)

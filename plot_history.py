@@ -21,7 +21,7 @@ trend_regression_size = 75
 trend_method = ['corr', 'regression'][1]
 epe = EPE_Loss()
 used_profile = profile.GDNet_mdc6f()
-start_version = 0
+start_version = 1
 
 version, loss_history = used_profile.load_history(version)
 print('Number of epochs:', len(loss_history['test']))

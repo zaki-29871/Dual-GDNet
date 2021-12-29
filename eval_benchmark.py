@@ -14,13 +14,16 @@ max_disparity_diff = 1.5
 merge_cost = True
 candidate = False
 plot_and_save_image = True
+use_resize = True
 use_split_prduce_disparity = False
-use_margin_prduce_disparity = True
+use_margin_prduce_disparity = False
+
+resize_height, resize_width = 352, 960  # KITTI, 2015 GTX 1660 Ti
 split_height, split_width = 352, 960  # KITTI, 2015 GTX 1660 Ti
 # split_height, split_width = 192, 1216  # KITTI 2015 GTX 1660 Ti
 margin_height, margin_width = 384, 1248  # KITTI 2015 GTX 1660 Ti
 
-assert use_split_prduce_disparity ^ use_margin_prduce_disparity, 'Just can use one setting'
+assert use_split_prduce_disparity ^ use_margin_prduce_disparity ^ use_resize, 'Just can use one setting'
 
 used_profile = profile.GDNet_mdc6f()
 dataset = 'KITTI_2015_benchmark'
@@ -41,7 +44,7 @@ error = []
 confidence_error = []
 total_eval = []
 
-test_dataset = KITTI_2015_benchmark()
+test_dataset = KITTI_2015_benchmark(use_resize=use_resize, resize_height=resize_height, resize_width=resize_width)
 test_loader = DataLoader(test_dataset, batch_size=1, shuffle=False)
 print('Number of testing data:', len(test_dataset))
 

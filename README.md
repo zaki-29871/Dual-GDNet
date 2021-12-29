@@ -15,7 +15,7 @@ Size of parameter: 11,593,136
 * **cuDNN v8**
 * **VS2019 (msvc)**
 
-## Dependency Compilation in Windows (ganet-lib)
+## Dependency Compilation in Windows (gdnet-lib)
     cd ./GANet/extensions/
     rm -r build
 replace `CppExtension` with `CUDAExtension` in line 5 of setup.py    
@@ -27,7 +27,10 @@ replace `CppExtension` with `CUDAExtension` in line 5 of setup.py
     pip install wheel
     pip install -r requirements.txt
 
+Go to pytorch website to install torch 10.2
+
 ## Issues
+
 1. https://github.com/pytorch/pytorch/issues/42467
 2. https://github.com/pytorch/pytorch/issues/11004#issuecomment-506721668
 3. https://blog.csdn.net/tanmx219/article/details/100829920
@@ -44,14 +47,11 @@ setup.py
 使用CUDAExtension
 
 ## Original KITTI 2015's height and width
-    1242 = 2*3^3*23
-    375 = 3*5^3
+    height: 1242 = 2*3^3*23
+    width: 375 = 3*5^3
 
 ## Efficiency
 Dual-GANet: 13 seconds per KITTI 2015 image with size 384, 1248
-
-## Other
-Disparity with float32 must multiply 256 for uint16 format
 
 ## Setting of model's image
 
@@ -66,3 +66,5 @@ Disparity with float32 must multiply 256 for uint16 format
 | Flyingthings3D | 384    | 960   | 144           |
 | KITTI 2015     | 352    | 1216  | 144           |
 
+## Other
+Disparity with float32 must multiply 256 in uint16 format
