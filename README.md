@@ -2,7 +2,7 @@
 Neural Network Project for Ruei-Ping's Master Thesis
 
 *Author: Ruei-Ping Wang (Jacky)*  
-*Organizer: Yi-Chen Chen (Jack)*
+*Organizer: Yi-Chen Chen (Jack) and Ruei-Ping Wang (Jacky)*
 
 Size of parameter: 11,593,136
 
@@ -47,7 +47,7 @@ setup.py
     1242 = 2*3^3*23
     375 = 3*5^3
 
-# Efficiency
+## Efficiency
 Dual-GANet: 13 seconds per KITTI 2015 image with size 384, 1248
 
 ## Other
