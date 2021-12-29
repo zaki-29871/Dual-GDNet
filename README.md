@@ -26,8 +26,7 @@ replace `CppExtension` with `CUDAExtension` in line 5 of setup.py
     python -m pip install --upgrade pip
     pip install wheel
     pip install -r requirements.txt
-
-Go to pytorch website to install torch 10.2
+    pip3 install torch==1.10.1+cu102 torchvision==0.11.2+cu102 torchaudio===0.10.1+cu102 -f https://download.pytorch.org/whl/cu102/torch_stable.html
 
 ## Issues
 
