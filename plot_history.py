@@ -15,13 +15,13 @@ class EPE_Loss:
         self.CSPN = 0.78
 
 
-version = 1277
-trend_kernel = 75  # version (plot) + trend kernel = real model version, trend_kernel = [1, 10]
-trend_regression_size = 75
+version = None
+trend_kernel = 1  # version (plot) + trend kernel = real model version, trend_kernel = [1, n]
+trend_regression_size = 1
 trend_method = ['corr', 'regression'][1]
 epe = EPE_Loss()
-used_profile = profile.GDNet_mdc6f()
-start_version = 1
+used_profile = profile.GDNet_sdc6f()
+start_version = 1  # start_version = [1, n]
 
 version, loss_history = used_profile.load_history(version)
 print('Number of epochs:', len(loss_history['test']))

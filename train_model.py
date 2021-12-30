@@ -13,8 +13,8 @@ import traceback
 # height, width = 256, 512
 # height, width = 192, 384  # Original setting, 384 - 144 = 240
 height, width = 192, 576  # KITTI 2015 GTX 1660 Ti, 576 - 144 = 432
-max_disparity = 144
-# max_disparity = 192
+# max_disparity = 144
+max_disparity = 192
 version = None
 max_version = 2000  # KITTI 2015 v1497 recommended version
 batch = 1
@@ -28,7 +28,7 @@ dataset = ['flyingthings3D', 'KITTI_2015']
 image = ['cleanpass', 'finalpass']  # for flyingthings3D
 exception_count = 0
 
-used_profile = profile.GDNet_mdc6f()
+used_profile = profile.GDNet_sdc6f()
 dataset = dataset[0]
 if dataset == 'flyingthings3D':
     image = image[1]
@@ -189,3 +189,4 @@ while v < max_version + 1:
         traceback.print_exc()
         exception_count += 1
         v -= 1
+        exit(-1)

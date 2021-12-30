@@ -8,6 +8,8 @@ import GDNet.GDNet_mdc6
 import GDNet.GDNet_mdc6f
 import GDNet.GDNet_dc6
 import GDNet.GDNet_dc6f
+import GDNet.GDNet_sdc6
+import GDNet.GDNet_sdc6f
 import os
 import utils
 import torch
@@ -20,6 +22,7 @@ import gdnet_lib
 class Profile:
     def __init__(self):
         os.makedirs(self.version_file_path(), exist_ok=True)
+        self.cost_count = None
         assert '-' not in str(self)
 
     def load_model(self, max_disparity, version=None):
@@ -212,13 +215,23 @@ class GDNet_c(Profile):
     def train(self, X, Y, dataset):
         Y = Y[:, 0, :, :]
 
-        cost0, cost1, cost2 = self.model(X[:, 0:3, :, :], X[:, 3:6, :, :])
-        loss0 = self.disparity_class(cost0, Y)
-        loss1 = self.disparity_class(cost1, Y)
-        loss2 = self.disparity_class(cost2, Y)
-        loss = 0.2 * loss0 + 0.6 * loss1 + loss2
+        if self.cost_count == 3:
+            cost0, cost1, cost2 = self.model(X[:, 0:3, :, :], X[:, 3:6, :, :])
+            loss0 = self.disparity_class(cost0, Y)
+            loss1 = self.disparity_class(cost1, Y)
+            loss2 = self.disparity_class(cost2, Y)
+            loss = 0.2 * loss0 + 0.6 * loss1 + loss2
+            disp = torch.argmax(cost2, dim=1).float()
 
-        disp = torch.argmax(cost2, dim=1).float()
+        elif self.cost_count == 5:
+            cost0, cost1, cost2, cost3, cost4 = self.model(X[:, 0:3, :, :], X[:, 3:6, :, :])
+            loss0 = self.disparity_class(cost0, Y)
+            loss1 = self.disparity_class(cost1, Y)
+            loss2 = self.disparity_class(cost2, Y)
+            loss3 = self.disparity_class(cost3, Y)
+            loss4 = self.disparity_class(cost4, Y)
+            loss = 0.4096 * loss0 + 0.512 * loss1 + 0.64 * loss2 + 0.8 * loss3 + loss4
+            disp = torch.argmax(cost4, dim=1).float()
 
         mask = utils.y_mask(Y, self.max_disparity, dataset)
         epe_loss = utils.EPE_loss(disp[mask], Y[mask])
@@ -290,10 +303,9 @@ class GDNet_md6(Profile):
         }
 
 
-class GDNet_mdc6(GDNet_c):
+class GDNet_basic(GDNet_c):
     def get_model(self, max_disparity):
         GDNet_c.get_model(self, max_disparity)
-        return GDNet.GDNet_mdc6.GDNet_mdc6(max_disparity)
 
     def train(self, X, Y, dataset):
 
@@ -466,10 +478,38 @@ class GDNet_mdc6(GDNet_c):
             'disp': disp_left.float(),
         }
 
-
-class GDNet_mdc6f(GDNet_mdc6):
+class GDNet_sdc6(GDNet_basic):
     def get_model(self, max_disparity):
-        GDNet_c.get_model(self, max_disparity)
+        super().get_model(max_disparity)
+        self.cost_count = 5
+        return GDNet.GDNet_sdc6.GDNet_sdc6(max_disparity)
+
+class GDNet_sdc6f(GDNet_basic):
+    def get_model(self, max_disparity):
+        super().get_model(max_disparity)
+        self.cost_count = 5
+        return GDNet.GDNet_sdc6f.GDNet_sdc6f(max_disparity)
+
+    def train(self, X, Y, dataset, flip=False):
+        if flip:
+            Y = Y[..., self.max_disparity:]
+
+        self.model.flip = flip
+        train_dict = GDNet_c.train(self, X, Y, dataset)
+
+        return train_dict
+
+class GDNet_mdc6(GDNet_basic):
+    def get_model(self, max_disparity):
+        super().get_model(max_disparity)
+        self.cost_count = 3
+        return GDNet.GDNet_mdc6.GDNet_mdc6(max_disparity)
+
+
+class GDNet_mdc6f(GDNet_basic):
+    def get_model(self, max_disparity):
+        super().get_model(max_disparity)
+        self.cost_count = 3
         return GDNet.GDNet_mdc6f.GDNet_mdc6f(max_disparity)
 
     def train(self, X, Y, dataset, flip=False):

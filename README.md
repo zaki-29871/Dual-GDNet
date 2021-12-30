@@ -58,6 +58,8 @@ Dual-GANet: 13 seconds per KITTI 2015 image with size 384, 1248
 | ----------- | ------ | ------ | ------------- |
 | GDNet_mdc6  | mod 32 | mod 32 | mod 16        |
 | GDNet_mdc6f | mod 32 | mod 32 | mod 16        |
+| GDNet_sdc6  | mod 64 | mod 64 | mod 32        |
+| GDNet_sdc6f | mod 64 | mod 64 | mod 32        |
 
 ### Evaluation
 | Name           | Height | Width | Max disparity |
