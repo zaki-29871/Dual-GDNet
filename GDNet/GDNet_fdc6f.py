@@ -1,12 +1,12 @@
 from GDNet.function import *
-import GDNet.GDNet_dc6
+import GDNet.GDNet_fdc6
 
 
-class GDNet_dc6f(nn.Module):
+class GDNet_fdc6f(nn.Module):
     def __init__(self, max_disparity=192):
-        super(GDNet_dc6f, self).__init__()
+        super(GDNet_fdc6f, self).__init__()
         self.max_disparity = max_disparity
-        self.model = GDNet.GDNet_dc6.GDNet_dc6(max_disparity)
+        self.model = GDNet.GDNet_fdc6.GDNet_fdc6(max_disparity)
         self.flip = False
 
     def forward(self, x, y):

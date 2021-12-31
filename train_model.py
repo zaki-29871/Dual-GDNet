@@ -9,12 +9,11 @@ import os
 import utils
 import traceback
 
-# height, width = 240, 576 GDNet_mdc6f
-# height, width = 256, 512
-# height, width = 192, 384  # Original setting, 384 - 144 = 240
-height, width = 192, 576  # KITTI 2015 GTX 1660 Ti, 576 - 144 = 432
+# height, width = 192, 576  # GDNet_mc6f, GDNet_sc6f GTX 1660 Ti, 576 - 144 = 432
+height, width = 96, 320  # GDNet_fc6f, 384 - 144 = 240
+max_disparity = 128
 # max_disparity = 144
-max_disparity = 192
+# max_disparity = 192
 version = None
 max_version = 2000  # KITTI 2015 v1497 recommended version
 batch = 1
@@ -28,7 +27,7 @@ dataset = ['flyingthings3D', 'KITTI_2015']
 image = ['cleanpass', 'finalpass']  # for flyingthings3D
 exception_count = 0
 
-used_profile = profile.GDNet_sdc6f()
+used_profile = profile.GDNet_fdc6()
 dataset = dataset[0]
 if dataset == 'flyingthings3D':
     image = image[1]

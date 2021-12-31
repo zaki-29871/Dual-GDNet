@@ -10,6 +10,8 @@ import GDNet.GDNet_dc6
 import GDNet.GDNet_dc6f
 import GDNet.GDNet_sdc6
 import GDNet.GDNet_sdc6f
+import GDNet.GDNet_fdc6
+import GDNet.GDNet_fdc6f
 import os
 import utils
 import torch
@@ -230,7 +232,7 @@ class GDNet_c(Profile):
             loss2 = self.disparity_class(cost2, Y)
             loss3 = self.disparity_class(cost3, Y)
             loss4 = self.disparity_class(cost4, Y)
-            loss = 0.4096 * loss0 + 0.512 * loss1 + 0.64 * loss2 + 0.8 * loss3 + loss4
+            loss = 0.1 * loss0 + 0.2 * loss1 + 0.4 * loss2 + 0.6 * loss3 + loss4
             disp = torch.argmax(cost4, dim=1).float()
 
         mask = utils.y_mask(Y, self.max_disparity, dataset)
@@ -522,22 +524,31 @@ class GDNet_mdc6f(GDNet_basic):
         return train_dict
 
 
-class GDNet_mdc4(GDNet_c):
+class GDNet_mdc4(GDNet_basic):
     def get_model(self, max_disparity):
-        GDNet_c.get_model(self, max_disparity)
+        super().get_model(max_disparity)
+        self.cost_count = 3
         return GDNet.GDNet_mdc4.GDNet_mdc4(max_disparity)
 
 
-class GDNet_dc6(GDNet_mdc6):
+class GDNet_dc6(GDNet_basic):
     def get_model(self, max_disparity):
-        GDNet_c.get_model(self, max_disparity)
+        super().get_model(max_disparity)
+        self.cost_count = 3
         return GDNet.GDNet_dc6.GDNet_dc6(max_disparity)
 
 
-class GDNet_dc6f(GDNet_mdc6f):
+class GDNet_fdc6(GDNet_basic):
     def get_model(self, max_disparity):
-        GDNet_c.get_model(self, max_disparity)
-        return GDNet.GDNet_dc6f.GDNet_dc6f(max_disparity)
+        super().get_model(max_disparity)
+        self.cost_count = 3
+        return GDNet.GDNet_fdc6.GDNet_fdc6(max_disparity)
+
+class GDNet_fdc6f(GDNet_basic):
+    def get_model(self, max_disparity):
+        super().get_model(max_disparity)
+        self.cost_count = 3
+        return GDNet.GDNet_fdc6f.GDNet_fdc6f(max_disparity)
 
 
 def penalize_cost_by_impossible(cost):

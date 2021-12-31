@@ -5,8 +5,8 @@ from profile import *
 from colorama import Style
 import profile
 
-# max_disparity = 192  # KITTI, 2015
-max_disparity = 144  # flyingthings3D
+max_disparity = 192  # KITTI, 2015
+# max_disparity = 144  # flyingthings3D
 # version = 592
 version = None
 seed = 0
@@ -15,7 +15,7 @@ max_disparity_diff = 1.5
 merge_cost = True
 candidate = False
 plot_and_save_image = True
-use_split_prduce_disparity = True
+use_split_produce_disparity = False
 
 # split_height, split_width = 256, 960  # flyingthings3D GTX 1660 Ti
 split_height, split_width = 416, 960  # flyingthings3D GTX 1660 Ti
@@ -25,7 +25,7 @@ split_height, split_width = 416, 960  # flyingthings3D GTX 1660 Ti
 dataset = ['flyingthings3D', 'KITTI_2015', 'KITTI_2015_benchmark', 'AerialImagery']
 image = ['cleanpass', 'finalpass']  # for flyingthings3D
 
-used_profile = profile.GDNet_mdc6f()
+used_profile = profile.GDNet_sdc6f()
 dataset = dataset[0]
 if dataset == 'flyingthings3D':
     image = image[1]
@@ -38,14 +38,14 @@ print('Using dataset:', dataset)
 print('Max disparity:', max_disparity)
 print('Number of parameters: {:,}'.format(sum(p.numel() for p in model.parameters())))
 print('Plot and save result image:', plot_and_save_image)
-print('Using split produce disparity mode:', use_split_prduce_disparity)
+print('Using split produce disparity mode:', use_split_produce_disparity)
 
 losses = []
 error = []
 confidence_error = []
 total_eval = []
 
-if use_split_prduce_disparity:
+if use_split_produce_disparity:
     if dataset == 'flyingthings3D':
         test_dataset = FlyingThings3D(max_disparity, type='test', image=image)
         test_dataset = random_subset(test_dataset, 100, seed=seed)
@@ -116,7 +116,7 @@ for batch_index, (X, Y) in enumerate(test_loader):
         utils.tic()
 
         if isinstance(used_profile, profile.GDNet_mdc6):
-            if use_split_prduce_disparity:
+            if use_split_produce_disparity:
                 eval_dict = utils.split_prduce_disparity(used_profile, X, Y, dataset, max_disparity, split_height,
                                                          split_width,
                                                          merge_cost=merge_cost, lr_check=False,

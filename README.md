@@ -56,10 +56,12 @@ Dual-GANet: 13 seconds per KITTI 2015 image with size 384, 1248
 
 | Name        | Height | Width  | Max disparity |
 | ----------- | ------ | ------ | ------------- |
-| GDNet_mdc6  | mod 32 | mod 32 | mod 16        |
-| GDNet_mdc6f | mod 32 | mod 32 | mod 16        |
 | GDNet_sdc6  | mod 64 | mod 64 | mod 32        |
 | GDNet_sdc6f | mod 64 | mod 64 | mod 32        |
+| GDNet_mdc6  | mod 32 | mod 32 | mod 16        |
+| GDNet_mdc6f | mod 32 | mod 32 | mod 16        |
+| GDNet_fdc6  | mod 32 | mod 32 | mod 8         |
+| GDNet_fdc6f | mod 32 | mod 32 | mod 8         |
 
 ### Evaluation
 | Name           | Height | Width | Max disparity |
@@ -68,4 +70,8 @@ Dual-GANet: 13 seconds per KITTI 2015 image with size 384, 1248
 | KITTI 2015     | 352    | 1216  | 144           |
 
 ## Other
-Disparity with float32 must multiply 256 in uint16 format
+- Disparity with float32 must multiply 256 in uint16 format
+- GDNet_dc6, GDNet_dc6f are not finish
+
+
+
