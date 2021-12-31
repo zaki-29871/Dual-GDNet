@@ -480,17 +480,9 @@ class GDNet_basic(GDNet_c):
             'disp': disp_left.float(),
         }
 
-class GDNet_sdc6(GDNet_basic):
+class GDNet_flip_training(GDNet_basic):
     def get_model(self, max_disparity):
-        super().get_model(max_disparity)
-        self.cost_count = 5
-        return GDNet.GDNet_sdc6.GDNet_sdc6(max_disparity)
-
-class GDNet_sdc6f(GDNet_basic):
-    def get_model(self, max_disparity):
-        super().get_model(max_disparity)
-        self.cost_count = 5
-        return GDNet.GDNet_sdc6f.GDNet_sdc6f(max_disparity)
+        GDNet_c.get_model(self, max_disparity)
 
     def train(self, X, Y, dataset, flip=False):
         if flip:
@@ -500,6 +492,18 @@ class GDNet_sdc6f(GDNet_basic):
         train_dict = GDNet_c.train(self, X, Y, dataset)
 
         return train_dict
+
+class GDNet_sdc6(GDNet_basic):
+    def get_model(self, max_disparity):
+        super().get_model(max_disparity)
+        self.cost_count = 5
+        return GDNet.GDNet_sdc6.GDNet_sdc6(max_disparity)
+
+class GDNet_sdc6f(GDNet_flip_training):
+    def get_model(self, max_disparity):
+        super().get_model(max_disparity)
+        self.cost_count = 5
+        return GDNet.GDNet_sdc6f.GDNet_sdc6f(max_disparity)
 
 class GDNet_mdc6(GDNet_basic):
     def get_model(self, max_disparity):
@@ -508,20 +512,11 @@ class GDNet_mdc6(GDNet_basic):
         return GDNet.GDNet_mdc6.GDNet_mdc6(max_disparity)
 
 
-class GDNet_mdc6f(GDNet_basic):
+class GDNet_mdc6f(GDNet_flip_training):
     def get_model(self, max_disparity):
         super().get_model(max_disparity)
         self.cost_count = 3
         return GDNet.GDNet_mdc6f.GDNet_mdc6f(max_disparity)
-
-    def train(self, X, Y, dataset, flip=False):
-        if flip:
-            Y = Y[..., self.max_disparity:]
-
-        self.model.flip = flip
-        train_dict = GDNet_c.train(self, X, Y, dataset)
-
-        return train_dict
 
 
 class GDNet_mdc4(GDNet_basic):
@@ -544,7 +539,7 @@ class GDNet_fdc6(GDNet_basic):
         self.cost_count = 3
         return GDNet.GDNet_fdc6.GDNet_fdc6(max_disparity)
 
-class GDNet_fdc6f(GDNet_basic):
+class GDNet_fdc6f(GDNet_flip_training):
     def get_model(self, max_disparity):
         super().get_model(max_disparity)
         self.cost_count = 3

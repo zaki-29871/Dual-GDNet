@@ -10,7 +10,7 @@ import utils
 import traceback
 
 # height, width = 192, 576  # GDNet_mc6f, GDNet_sc6f GTX 1660 Ti, 576 - 144 = 432
-height, width = 96, 320  # GDNet_fc6f, 384 - 144 = 240
+height, width = 96, 320  # GDNet_fc6f, 320 - 128 = 192
 max_disparity = 128
 # max_disparity = 144
 # max_disparity = 192
@@ -27,7 +27,7 @@ dataset = ['flyingthings3D', 'KITTI_2015']
 image = ['cleanpass', 'finalpass']  # for flyingthings3D
 exception_count = 0
 
-used_profile = profile.GDNet_fdc6()
+used_profile = profile.GDNet_fdc6f()
 dataset = dataset[0]
 if dataset == 'flyingthings3D':
     image = image[1]
@@ -72,8 +72,12 @@ while v < max_version + 1:
     try:
         print('Exception count:', exception_count)
         if dataset == 'flyingthings3D':
-            train_loader = DataLoader(random_subset(train_dataset, 192), batch_size=batch, shuffle=False)
-            test_loader = DataLoader(random_subset(test_dataset, 48), batch_size=batch, shuffle=False)
+            # train_loader = DataLoader(random_subset(train_dataset, 192), batch_size=batch, shuffle=False)
+            # test_loader = DataLoader(random_subset(test_dataset, 48), batch_size=batch, shuffle=False)
+
+            # GDNet_fdc6f
+            train_loader = DataLoader(random_subset(train_dataset, 72), batch_size=batch, shuffle=False)
+            test_loader = DataLoader(random_subset(test_dataset, 8), batch_size=batch, shuffle=False)
 
         elif dataset == 'KITTI_2015':
             train_loader = DataLoader(random_subset(train_dataset, 160), batch_size=batch, shuffle=False)
@@ -93,7 +97,7 @@ while v < max_version + 1:
                 print('Detect Y are all zero')
                 continue
             utils.tic()
-            if isinstance(used_profile, profile.GDNet_mdc6f):
+            if isinstance(used_profile, profile.GDNet_flip_training):
                 optimizer.zero_grad()
                 train_dict0 = used_profile.train(X, Y, dataset, flip=False)
                 train_dict0['loss'].backward()
@@ -188,4 +192,4 @@ while v < max_version + 1:
         traceback.print_exc()
         exception_count += 1
         v -= 1
-        exit(-1)
+        # exit(-1)
