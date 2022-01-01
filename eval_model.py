@@ -1,11 +1,12 @@
-from dataset import FlyingThings3D, random_subset, random_split, KITTI_2015, AerialImagery
+from dataset.dataset import *
 from torch.utils.data import DataLoader
 import numpy as np
 from profile import *
 from colorama import Style
 import profile
 
-max_disparity = 192  # KITTI, 2015
+# GTX 1660 Ti
+max_disparity = 192  # KITTI 2015
 # max_disparity = 144  # flyingthings3D
 # version = 592
 version = None
@@ -16,17 +17,26 @@ merge_cost = True
 candidate = False
 plot_and_save_image = True
 use_split_produce_disparity = False
+use_crop_size = False
+use_resize = True  # only KITTI_2015_benchmark uses this, and it also doesn't have crop_size setting
 
-# split_height, split_width = 256, 960  # flyingthings3D GTX 1660 Ti
-split_height, split_width = 416, 960  # flyingthings3D GTX 1660 Ti
-# split_height, split_width = 352, 960  # KITTI, 2015 GTX 1660 Ti
-# split_height, split_width = 192, 1216  # KITTI 2015 GTX 1660 Ti
+if use_split_produce_disparity + use_resize + use_crop_size != 1:
+    raise Exception('Using only one image regeneration method')
+
+if use_split_produce_disparity:
+    # flyingthings3D
+    # split_height, split_width = 256, 960
+    split_height, split_width = 416, 960
+
+    # KITTI, 2015
+    # split_height, split_width = 352, 960
+    # split_height, split_width = 192, 1216
 
 dataset = ['flyingthings3D', 'KITTI_2015', 'KITTI_2015_benchmark', 'AerialImagery']
 image = ['cleanpass', 'finalpass']  # for flyingthings3D
 
 used_profile = profile.GDNet_sdc6f()
-dataset = dataset[0]
+dataset = dataset[2]
 if dataset == 'flyingthings3D':
     image = image[1]
 
@@ -39,6 +49,8 @@ print('Max disparity:', max_disparity)
 print('Number of parameters: {:,}'.format(sum(p.numel() for p in model.parameters())))
 print('Plot and save result image:', plot_and_save_image)
 print('Using split produce disparity mode:', use_split_produce_disparity)
+print('Using use resize mode:', use_resize)
+print('Using use crop size mode:', use_crop_size)
 
 losses = []
 error = []
@@ -53,9 +65,7 @@ if use_split_produce_disparity:
     elif dataset == 'KITTI_2015':
         # train_ratio=0.99 for size 2 images
         train_dataset, test_dataset = random_split(
-            KITTI_2015(max_disparity, type='train', untexture_rate=0),
-            train_ratio=0.8,
-            seed=seed)
+            KITTI_2015(type='train', untexture_rate=0), train_ratio=0.8, seed=seed)
 
     elif dataset == 'KITTI_2015_benchmark':
         test_dataset = KITTI_2015(max_disparity, type='test')
@@ -65,55 +75,53 @@ if use_split_produce_disparity:
 
     else:
         raise Exception('Cannot find dataset: ' + dataset)
-else:
+
+elif use_crop_size:
     if dataset == 'flyingthings3D':
         # height, width = 512, 960
-        height, width = 384, 960  # use when lack of memory
+        # height, width = 384, 960  # GDNet_mdc6f
+        height, width = 192, 480  # GDNet_sdc6f
 
     elif dataset == 'KITTI_2015':
-        height, width = 352, 1216
-        # height, width = 336, 1200  # GDNet_dc6f
-
-    elif dataset == 'KITTI_2015_benchmark':
-        height, width = 352, 1216
+        # height, width = 352, 1216  # GDNet_mdc6f
+        height, width = 320, 1216  # GDNet_sdc6f
         # height, width = 336, 1200  # GDNet_dc6f
 
     elif dataset == 'AerialImagery':
         height, width = AerialImagery.image_size
 
     if dataset == 'flyingthings3D':
-        # height, width = 512, 960
-        height, width = 384, 960  # use when lack of memory
-        test_dataset = FlyingThings3D(max_disparity, crop_size=(height, width), type='test', crop_seed=0, image=image)
+        test_dataset = FlyingThings3D(max_disparity, crop_size=(height, width), type='test', crop_seed=0,
+                                      image=image)
         test_dataset = random_subset(test_dataset, 100, seed=seed)
 
     elif dataset == 'KITTI_2015':
-        height, width = 352, 1216
-        # height, width = 336, 1200  # GDNet_dc6f
         train_dataset, test_dataset = random_split(
-            KITTI_2015((height, width), type='train', crop_seed=0, untexture_rate=0),
+            KITTI_2015(crop_size=(height, width), type='train', crop_seed=0, untexture_rate=0),
             train_ratio=0.8,
             seed=seed)
-
-    elif dataset == 'KITTI_2015_benchmark':
-        height, width = 352, 1216
-        # height, width = 336, 1200  # GDNet_dc6f
-        test_dataset = KITTI_2015((height, width), type='test', crop_seed=0)
 
     elif dataset == 'AerialImagery':
         height, width = AerialImagery.image_size
         test_dataset = AerialImagery()
 
-    else:
-        raise Exception('Cannot find dataset: ' + dataset)
-    print('Image size:', (height, width))
+elif use_resize:
+    if dataset == 'KITTI_2015_benchmark':
+        # height, width = 352, 1216  # GDNet_mdc6f
+        height, width = 384, 1280  # GDNet_sdc6f
+        # height, width = 336, 1200  # GDNet_dc6f
 
+    if dataset == 'KITTI_2015_benchmark':
+        test_dataset = KITTI_2015_benchmark(use_resize=True, resize=(height, width))
+
+print('Image size:', (height, width))
 test_loader = DataLoader(test_dataset, batch_size=1, shuffle=False)
 print('Number of testing data:', len(test_dataset))
 model.eval()
 for batch_index, (X, Y) in enumerate(test_loader):
     with torch.no_grad():
         utils.tic()
+        print(X.size())
 
         if isinstance(used_profile, profile.GDNet_mdc6):
             if use_split_produce_disparity:
@@ -150,10 +158,11 @@ for batch_index, (X, Y) in enumerate(test_loader):
             plotter = utils.CostPlotter()
 
             plotter.plot_image_disparity(X[0], Y[0, 0], dataset, eval_dict,
-                                         max_disparity=max_disparity,
+                                         max_disparity=max_disparity, use_resize=use_resize,
+                                         original_width_height=(test_dataset.origin_width, test_dataset.origin_height),
                                          save_result_file=(f'{used_profile}/{dataset}', batch_index, False,
                                                            error_rate_str))
-        # # exit(0)
+        # exit(0)
         # os.system('nvidia-smi')
 
 print(f'avg loss = {np.array(losses).mean():.3f}')

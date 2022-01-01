@@ -480,6 +480,7 @@ class GDNet_basic(GDNet_c):
             'disp': disp_left.float(),
         }
 
+
 class GDNet_flip_training(GDNet_basic):
     def get_model(self, max_disparity):
         GDNet_c.get_model(self, max_disparity)
@@ -493,17 +494,20 @@ class GDNet_flip_training(GDNet_basic):
 
         return train_dict
 
+
 class GDNet_sdc6(GDNet_basic):
     def get_model(self, max_disparity):
         super().get_model(max_disparity)
         self.cost_count = 5
         return GDNet.GDNet_sdc6.GDNet_sdc6(max_disparity)
 
+
 class GDNet_sdc6f(GDNet_flip_training):
     def get_model(self, max_disparity):
         super().get_model(max_disparity)
         self.cost_count = 5
         return GDNet.GDNet_sdc6f.GDNet_sdc6f(max_disparity)
+
 
 class GDNet_mdc6(GDNet_basic):
     def get_model(self, max_disparity):
@@ -538,6 +542,7 @@ class GDNet_fdc6(GDNet_basic):
         super().get_model(max_disparity)
         self.cost_count = 3
         return GDNet.GDNet_fdc6.GDNet_fdc6(max_disparity)
+
 
 class GDNet_fdc6f(GDNet_flip_training):
     def get_model(self, max_disparity):

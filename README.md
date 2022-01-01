@@ -71,7 +71,4 @@ Dual-GANet: 13 seconds per KITTI 2015 image with size 384, 1248
 
 ## Other
 - Disparity with float32 must multiply 256 in uint16 format
-- GDNet_dc6, GDNet_dc6f are not finish
-
-
-
+- GDNet_dc6, GDNet_dc6f are not finished

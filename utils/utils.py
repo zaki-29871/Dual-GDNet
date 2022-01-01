@@ -165,7 +165,8 @@ class CostPlotter:
         self.marker_size = 15
 
     def plot_image_disparity(self, X, Y, dataset, eval_dict, max_disparity=192, padding=30, save_file=None,
-                             save_result_file=None, error_map=True, is_benchmark=False):
+                             save_result_file=None, error_map=True, is_benchmark=False, use_resize=None,
+                             original_width_height=None):
         self.max_disparity = max_disparity
         self.padding = padding
         self.confidence_error = None
@@ -183,6 +184,11 @@ class CostPlotter:
             X = (X * 255).data.cpu().numpy().astype('uint8')
             X = X.swapaxes(1, 2).swapaxes(0, 2)  # hegiht, width, channel*3
             Y = Y.data.cpu().numpy()
+
+            if use_resize:
+                X = cv2.resize(X, original_width_height)
+                Y = cv2.resize(Y, original_width_height)
+                self.predict = cv2.resize(self.predict, original_width_height)
 
             if 'confidence_error' in eval_dict.keys() and eval_dict["confidence_error"] is not None:
                 self.confidence_error = eval_dict["confidence_error"][0].data.cpu().numpy()

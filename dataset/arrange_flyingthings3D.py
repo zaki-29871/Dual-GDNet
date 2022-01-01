@@ -1,6 +1,6 @@
 import cv2
 import os
-import tools
+import utils
 import numpy as np
 import utils
 dataset_root = '/media/jack/data/Dataset'
@@ -34,22 +34,22 @@ for f1 in ['TRAIN', 'TEST']:
                 right_image = cv2.imread(os.path.join(cleanpass_root, folder, 'right', file))
                 X = np.concatenate([left_image, right_image], axis=2)
                 X = X.swapaxes(0, 2).swapaxes(1, 2)
-                tools.save(X, os.path.join(save_path, f'cleanpass/{index:05d}.np'))
+                utils.save(X, os.path.join(save_path, f'cleanpass/{index:05d}.np'))
 
                 # Final pass
                 left_image = cv2.imread(os.path.join(finalpass_root, folder, 'left', file))
                 right_image = cv2.imread(os.path.join(finalpass_root, folder, 'right', file))
                 X = np.concatenate([left_image, right_image], axis=2)
                 X = X.swapaxes(0, 2).swapaxes(1, 2)
-                tools.save(X, os.path.join(save_path, f'finalpass/{index:05d}.np'))
+                utils.save(X, os.path.join(save_path, f'finalpass/{index:05d}.np'))
 
                 # Left Disparity
                 Y = utils.read_pfm(os.path.join(disparity_root, folder, 'left', file[:4] + '.pfm')).squeeze()
-                tools.save(Y, os.path.join(save_path, f'left_disparity/{index:05d}.np'))
+                utils.save(Y, os.path.join(save_path, f'left_disparity/{index:05d}.np'))
 
                 # Right Disparity
                 Y = utils.read_pfm(os.path.join(disparity_root, folder, 'right', file[:4] + '.pfm')).squeeze()
-                tools.save(Y, os.path.join(save_path, f'right_disparity/{index:05d}.np'))
+                utils.save(Y, os.path.join(save_path, f'right_disparity/{index:05d}.np'))
 
                 index += 1
 

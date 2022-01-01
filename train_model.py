@@ -1,7 +1,7 @@
 import torch
 from torch.utils.data import DataLoader
 import torch.optim as optim
-from dataset import FlyingThings3D, random_subset, random_split, KITTI_2015
+from dataset.dataset import *
 from colorama import Style
 import profile
 import numpy as np
@@ -9,11 +9,7 @@ import os
 import utils
 import traceback
 
-# height, width = 192, 576  # GDNet_mc6f, GDNet_sc6f GTX 1660 Ti, 576 - 144 = 432
-height, width = 96, 320  # GDNet_fc6f, 320 - 128 = 192
-max_disparity = 128
-# max_disparity = 144
-# max_disparity = 192
+
 version = None
 max_version = 2000  # KITTI 2015 v1497 recommended version
 batch = 1
@@ -27,10 +23,23 @@ dataset = ['flyingthings3D', 'KITTI_2015']
 image = ['cleanpass', 'finalpass']  # for flyingthings3D
 exception_count = 0
 
-used_profile = profile.GDNet_fdc6f()
+used_profile = profile.GDNet_sdc6f()
 dataset = dataset[0]
 if dataset == 'flyingthings3D':
     image = image[1]
+
+# GTX 1660 Ti
+if isinstance(used_profile, profile.GDNet_sdc6f):
+    height, width = 192, 576  # 576 - 192 = 384
+    max_disparity = 192
+
+elif isinstance(used_profile, profile.GDNet_mdc6f):
+    height, width = 192, 576  # 576 - 144 = 432
+    max_disparity = 144
+
+elif isinstance(used_profile, profile.GDNet_fdc6f):
+    height, width = 96, 320  # 320 - 128 = 192
+    max_disparity = 128
 
 model = used_profile.load_model(max_disparity, version)[1]
 version, loss_history = used_profile.load_history(version)
@@ -72,12 +81,12 @@ while v < max_version + 1:
     try:
         print('Exception count:', exception_count)
         if dataset == 'flyingthings3D':
-            # train_loader = DataLoader(random_subset(train_dataset, 192), batch_size=batch, shuffle=False)
-            # test_loader = DataLoader(random_subset(test_dataset, 48), batch_size=batch, shuffle=False)
-
-            # GDNet_fdc6f
-            train_loader = DataLoader(random_subset(train_dataset, 72), batch_size=batch, shuffle=False)
-            test_loader = DataLoader(random_subset(test_dataset, 8), batch_size=batch, shuffle=False)
+            if isinstance(used_profile, profile.GDNet_fdc6f):
+                train_loader = DataLoader(random_subset(train_dataset, 72), batch_size=batch, shuffle=False)
+                test_loader = DataLoader(random_subset(test_dataset, 8), batch_size=batch, shuffle=False)
+            else:
+                train_loader = DataLoader(random_subset(train_dataset, 192), batch_size=batch, shuffle=False)
+                test_loader = DataLoader(random_subset(test_dataset, 48), batch_size=batch, shuffle=False)
 
         elif dataset == 'KITTI_2015':
             train_loader = DataLoader(random_subset(train_dataset, 160), batch_size=batch, shuffle=False)
@@ -192,4 +201,6 @@ while v < max_version + 1:
         traceback.print_exc()
         exception_count += 1
         v -= 1
+        if exception_count >= 50:
+            exit(-1)
         # exit(-1)

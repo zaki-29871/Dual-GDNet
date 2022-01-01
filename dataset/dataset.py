@@ -36,7 +36,7 @@ class FlyingThings3D(Dataset):
         elif type == 'test':
             for d in self.disparity:
                 self.data_max_disparity.append(utils.load(os.path.join(self.ROOT, f'{d}_max_disparity.np'))[1])
-            self.root = os.path.join(self.ROOT, 'TEST')
+            self.root = os.path.join(self.ROOT, '../test')
 
             if small:
                 self.size = 1440
@@ -111,7 +111,7 @@ class KITTI_2015(Dataset):
     # HEIGHT, WIDTH = 352, 1216  # GTX 2080 Ti
     # HEIGHT, WIDTH = 256, 1248  # GTX 1660 Ti
 
-    def __init__(self, max_disparity, crop_size=None, type='train', crop_seed=None, untexture_rate=0.1):
+    def __init__(self, crop_size=None, type='train', crop_seed=None, untexture_rate=0.1):
         assert os.path.exists(self.ROOT), 'Dataset path is not exist'
         self.type = type
         if type == 'train':
@@ -129,7 +129,6 @@ class KITTI_2015(Dataset):
         if self.type == 'train':
             untexture_learning = random.randint(1, 100) <= int(self.untexture_rate * 100)
             if untexture_learning:
-                print('untexture_learning')
                 bgr = (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
                 X1 = np.full((375, 1242, 3), bgr, dtype=np.uint8)
                 X2 = np.full((375, 1242, 3), bgr, dtype=np.uint8)
@@ -190,7 +189,7 @@ class KITTI_2015(Dataset):
 
 
 class KITTI_2015_benchmark(Dataset):
-    ROOT = r'G:\Dataset\KITTI 2015'
+    ROOT = r'F:\Dataset\KITTI 2015'
 
     # KITTI 2015 original height and width (375, 1242, 3), dtype uint8
     # height and width: (370, 1224) is the smallest size
@@ -199,20 +198,18 @@ class KITTI_2015_benchmark(Dataset):
     # HEIGHT, WIDTH = 352, 1216  # GTX 2080 Ti
     # HEIGHT, WIDTH = 256, 1248  # GTX 1660 Ti
 
-    def __init__(self, use_resize=False, resize_height=None, resize_width=None):
+    def __init__(self, use_resize=False, resize=None):
         assert os.path.exists(self.ROOT), 'Dataset path is not exist'
         self.root = os.path.join(self.ROOT, 'testing')
         self.use_resize = use_resize
-        self.resize_height = resize_height
-        self.resize_width = resize_width
+        self.resize_height, self.resize_width = resize
 
     def __getitem__(self, index):
         X1 = cv2.imread(os.path.join(self.root, 'image_2/{:06d}_10.png'.format(index)))
         X2 = cv2.imread(os.path.join(self.root, 'image_3/{:06d}_10.png'.format(index)))
-        origin_height, origin_width = X1.shape[:2]
+        self.origin_height, self.origin_width = X1.shape[:2]
 
         # print('KITTI 2015 original height and width:', origin_height, origin_width)
-
         # print(cv2.imread(f'D:/Dataset/KITTI 2015/training/disp_noc_0/{index:06d}_10.png')[250:, 250:])
 
         if self.use_resize:
@@ -229,7 +226,7 @@ class KITTI_2015_benchmark(Dataset):
         X = torch.from_numpy(X) / 255.0
 
         Y = torch.ones((1, X.size(1), X.size(2)), dtype=torch.float)
-        return X.cuda(), Y.cuda(), origin_height, origin_width
+        return X.cuda(), Y.cuda()
 
     def __len__(self):
         return 200
