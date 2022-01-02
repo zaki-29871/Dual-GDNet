@@ -36,7 +36,7 @@ class FlyingThings3D(Dataset):
         elif type == 'test':
             for d in self.disparity:
                 self.data_max_disparity.append(utils.load(os.path.join(self.ROOT, f'{d}_max_disparity.np'))[1])
-            self.root = os.path.join(self.ROOT, '../test')
+            self.root = os.path.join(self.ROOT, 'TEST')
 
             if small:
                 self.size = 1440

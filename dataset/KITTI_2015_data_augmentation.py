@@ -6,11 +6,13 @@ import shutil
 # Setting
 original_data_folder = r'F:\Dataset\KITTI 2015\training'
 destination_folder = r'F:\Dataset\KITTI 2015 Data Augmentation'
-blur_kernel = 5
-scale_ratio = 1.5
-gaussian_noise_ratio = 0.2  # [0, 1]
-gaussian_noise_mean = 0
-gaussian_noise_std = 0.15  # [0, 1]
+copy_size = 200
+# blur_kernels = [3]
+# scale_ratios = [1.5]
+# gaussian_noises = [(0.05, 0, 0.05)]  # ratio [0, 1], mean, std
+blur_kernels = [3, 5]
+scale_ratios = [0.8, 1.2, 1.5, 2]
+gaussian_noises = [(0.05, 0, 0.05), (0.1, 0, 0.05)]  # ratio [0, 1], mean, std
 
 if os.path.exists(destination_folder):
     shutil.rmtree(destination_folder)
@@ -19,8 +21,13 @@ os.makedirs(os.path.join(destination_folder, 'image_2'), exist_ok=True)
 os.makedirs(os.path.join(destination_folder, 'image_3'), exist_ok=True)
 os.makedirs(os.path.join(destination_folder, 'disp_occ_0'), exist_ok=True)
 
+augmentation_multiplier = 2 * (len(blur_kernels) + 1) * (len(scale_ratios) + 1) * (len(gaussian_noises) + 1)
+print('Original data size:', copy_size)
+print('Augmentation multiplier:', augmentation_multiplier)
+print('Augment data size:', copy_size * augmentation_multiplier)
+
 # Copy original images
-for i in range(0, 1):
+for i in range(0, copy_size):
     print(f'Copy index {i}')
     # All (376, 1241, 3) uint8
     X1_path = f'{i:06d}_10'
@@ -36,11 +43,11 @@ for i in range(0, 1):
     cv2.imwrite(os.path.join(destination_folder, 'disp_occ_0', f'{Y_path}.png'), Y)
 
 # Vertical flipping images
-for X1_path in os.listdir(os.path.join(destination_folder, 'image_2')):
-    print(f'Vertical flipping {X1_path}')
-    X1_path = X1_path.split('.')[0]
-    X2_path = X1_path.split('.')[0]
-    Y_path = X1_path.split('.')[0]
+for X1_path_original in os.listdir(os.path.join(destination_folder, 'image_2')):
+    print(f'Vertical flipping {X1_path_original}')
+    X1_path = X1_path_original.split('.')[0]
+    X2_path = X1_path_original.split('.')[0]
+    Y_path = X1_path_original.split('.')[0]
 
     X1 = cv2.imread(os.path.join(original_data_folder, 'image_2', f'{X1_path}.png'))
     X2 = cv2.imread(os.path.join(original_data_folder, 'image_3', f'{X2_path}.png'))
@@ -56,65 +63,73 @@ for X1_path in os.listdir(os.path.join(destination_folder, 'image_2')):
     cv2.imwrite(os.path.join(destination_folder, 'disp_occ_0', f'{Y_path}_flip.png'), Y)
 
 # Blurring images
-for X1_path in os.listdir(os.path.join(destination_folder, 'image_2')):
-    print(f'Blurring images {X1_path}')
-    X1_path = X1_path.split('.')[0]
-    X2_path = X1_path.split('.')[0]
-    Y_path = X1_path.split('.')[0]
+for X1_path_original in os.listdir(os.path.join(destination_folder, 'image_2')):
+    for blur_kernel in blur_kernels:
+        print(f'Blurring images {X1_path_original}, blur kernel = {blur_kernel}')
+        X1_path = X1_path_original.split('.')[0]
+        X2_path = X1_path_original.split('.')[0]
+        Y_path = X1_path_original.split('.')[0]
 
-    X1 = cv2.imread(os.path.join(destination_folder, 'image_2', f'{X1_path}.png'))
-    X2 = cv2.imread(os.path.join(destination_folder, 'image_3', f'{X2_path}.png'))
-    Y = cv2.imread(os.path.join(destination_folder, 'disp_occ_0', f'{Y_path}.png'))
+        X1 = cv2.imread(os.path.join(destination_folder, 'image_2', f'{X1_path}.png'))
+        X2 = cv2.imread(os.path.join(destination_folder, 'image_3', f'{X2_path}.png'))
+        Y = cv2.imread(os.path.join(destination_folder, 'disp_occ_0', f'{Y_path}.png'))
 
-    X1 = cv2.blur(X1, (blur_kernel, blur_kernel))
-    X2 = cv2.blur(X2, (blur_kernel, blur_kernel))
+        X1 = cv2.blur(X1, (blur_kernel, blur_kernel))
+        X2 = cv2.blur(X2, (blur_kernel, blur_kernel))
 
-    cv2.imwrite(os.path.join(destination_folder, 'image_2', f'{X1_path}_blur.png'), X1)
-    cv2.imwrite(os.path.join(destination_folder, 'image_3', f'{X2_path}_blur.png'), X2)
-    cv2.imwrite(os.path.join(destination_folder, 'disp_occ_0', f'{Y_path}_blur.png'), Y)
+        cv2.imwrite(os.path.join(destination_folder, 'image_2', f'{X1_path}_blur_{blur_kernel}.png'), X1)
+        cv2.imwrite(os.path.join(destination_folder, 'image_3', f'{X2_path}_blur_{blur_kernel}.png'), X2)
+        cv2.imwrite(os.path.join(destination_folder, 'disp_occ_0', f'{Y_path}_blur_{blur_kernel}.png'), Y)
 
 # Scaling images
-for X1_path in os.listdir(os.path.join(destination_folder, 'image_2')):
-    print(f'Scaling images {X1_path}')
-    X1_path = X1_path.split('.')[0]
-    X2_path = X1_path.split('.')[0]
-    Y_path = X1_path.split('.')[0]
+for X1_path_original in os.listdir(os.path.join(destination_folder, 'image_2')):
+    for scale_ratio in scale_ratios:
+        print(f'Scaling images {X1_path_original}, scale_ratio = {scale_ratio}')
+        X1_path = X1_path_original.split('.')[0]
+        X2_path = X1_path_original.split('.')[0]
+        Y_path = X1_path_original.split('.')[0]
 
-    X1 = cv2.imread(os.path.join(destination_folder, 'image_2', f'{X1_path}.png'))
-    X2 = cv2.imread(os.path.join(destination_folder, 'image_3', f'{X2_path}.png'))
-    Y = cv2.imread(os.path.join(destination_folder, 'disp_occ_0', f'{Y_path}.png'))
+        X1 = cv2.imread(os.path.join(destination_folder, 'image_2', f'{X1_path}.png'))
+        X2 = cv2.imread(os.path.join(destination_folder, 'image_3', f'{X2_path}.png'))
+        Y = cv2.imread(os.path.join(destination_folder, 'disp_occ_0', f'{Y_path}.png'))
+        resize_width, resize_hight = int(1248 * scale_ratio), int(384 * scale_ratio)
 
-    # 384, 1248 for width and height of KITTI 2015 images
-    X1 = cv2.resize(X1, (384 * scale_ratio, 1248 * scale_ratio))
-    X2 = cv2.resize(X2, (384 * scale_ratio, 1248 * scale_ratio))
-    Y = cv2.resize(Y, (384 * scale_ratio, 1248 * scale_ratio))
+        # 384, 1248 for width and height of KITTI 2015 images
+        X1 = cv2.resize(X1, (resize_width, resize_hight))
+        X2 = cv2.resize(X2, (resize_width, resize_hight))
+        Y = cv2.resize(Y, (resize_width, resize_hight))
 
-    cv2.imwrite(os.path.join(destination_folder, 'image_2', f'{X1_path}_scale.png'), X1)
-    cv2.imwrite(os.path.join(destination_folder, 'image_3', f'{X2_path}_scale.png'), X2)
-    cv2.imwrite(os.path.join(destination_folder, 'disp_occ_0', f'{Y_path}_scale.png'), Y)
+        scale_ratio_str = str(scale_ratio).replace('.', '-')
+        cv2.imwrite(os.path.join(destination_folder, 'image_2', f'{X1_path}_scale_{scale_ratio_str}.png'), X1)
+        cv2.imwrite(os.path.join(destination_folder, 'image_3', f'{X2_path}_scale_{scale_ratio_str}.png'), X2)
+        cv2.imwrite(os.path.join(destination_folder, 'disp_occ_0', f'{Y_path}_scale_{scale_ratio_str}.png'), Y)
 
 # Add Gaussian noises
-for X1_path in os.listdir(os.path.join(destination_folder, 'image_2')):
-    print(f'Add Gaussian noises {X1_path}')
-    X1_path = X1_path.split('.')[0]
-    X2_path = X1_path.split('.')[0]
-    Y_path = X1_path.split('.')[0]
+for X1_path_original in os.listdir(os.path.join(destination_folder, 'image_2')):
+    for ratio, mean, std in gaussian_noises:
+        print(f'Add Gaussian noises {X1_path_original}, ratio = {ratio}, mean = {mean}, std = {std}')
+        X1_path = X1_path_original.split('.')[0]
+        X2_path = X1_path_original.split('.')[0]
+        Y_path = X1_path_original.split('.')[0]
 
-    X1 = cv2.imread(os.path.join(destination_folder, 'image_2', f'{X1_path}.png'))
-    X2 = cv2.imread(os.path.join(destination_folder, 'image_3', f'{X2_path}.png'))
-    Y = cv2.imread(os.path.join(destination_folder, 'disp_occ_0', f'{Y_path}.png'))
+        X1 = cv2.imread(os.path.join(destination_folder, 'image_2', f'{X1_path}.png'))
+        X2 = cv2.imread(os.path.join(destination_folder, 'image_3', f'{X2_path}.png'))
+        Y = cv2.imread(os.path.join(destination_folder, 'disp_occ_0', f'{Y_path}.png'))
 
-    noise_mask = np.random.random(X1.shape[:2]) <= gaussian_noise_ratio
-    noise = np.random.normal(gaussian_noise_mean, gaussian_noise_std, X1.shape[:2]) * 255
-    for i in range(3):
-        X1[..., i][noise_mask] = X1[..., i].astype('float64')[noise_mask] + noise[noise_mask]
-    X1 = X1.astype('uint8')
+        noise_mask = np.random.random(X1.shape[:2]) <= ratio
+        noise = np.random.normal(mean, std, X1.shape[:2]) * 255
+        for i in range(3):
+            X1[..., i][noise_mask] = X1[..., i].astype('float64')[noise_mask] + noise[noise_mask]
+        X1 = X1.astype('uint8')
 
-    noise_mask = np.random.random(X2.shape[:2]) <= gaussian_noise_ratio
-    noise = np.random.normal(gaussian_noise_mean, gaussian_noise_std, X2.shape[:2]) * 255
-    for i in range(3):
-        X2[..., i][noise_mask] = X2[..., i].astype('float64')[noise_mask] + noise[noise_mask]
-    X2 = X2.astype('uint8')
+        noise_mask = np.random.random(X2.shape[:2]) <= ratio
+        noise = np.random.normal(mean, std, X2.shape[:2]) * 255
+        for i in range(3):
+            X2[..., i][noise_mask] = X2[..., i].astype('float64')[noise_mask] + noise[noise_mask]
+        X2 = X2.astype('uint8')
 
-    cv2.imwrite(os.path.join(destination_folder, 'image_2', f'{X1_path}_noise.png'), X1)
-    cv2.imwrite(os.path.join(destination_folder, 'image_3', f'{X2_path}_noise.png'), X2)
+        gaussian_noise_str = str(ratio).replace('.', '-') + '_' + str(mean).replace('.', '-') + '_' + str(std).replace(
+            '.', '-')
+        cv2.imwrite(os.path.join(destination_folder, 'image_2', f'{X1_path}_noise_{gaussian_noise_str}.png'), X1)
+        cv2.imwrite(os.path.join(destination_folder, 'image_3', f'{X2_path}_noise_{gaussian_noise_str}.png'), X2)
+        cv2.imwrite(os.path.join(destination_folder, 'disp_occ_0', f'{Y_path}_noise_{gaussian_noise_str}.png'), Y)

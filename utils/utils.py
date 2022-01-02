@@ -786,8 +786,7 @@ def split_prduce_disparity(used_profile, X, Y, dataset, max_disparity, split_hei
 def trend_regression(loss_trend, method='corr'):
     """Loss descent checking"""
     if method == 'regression':
-        # y = ax + b
-        b = loss_trend.reshape(-1, 1)
+        b = loss_trend.reshape(-1, 1)  # b: (n, 1)
         A = np.concatenate([np.arange(len(b)).reshape(-1, 1), np.ones((len(b), 1))], axis=1)
         x = np.linalg.inv(A.T.dot(A)).dot(A.T).dot(b)
         return float(x[0, 0])

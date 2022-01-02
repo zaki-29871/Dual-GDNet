@@ -17,8 +17,8 @@ merge_cost = True
 candidate = False
 plot_and_save_image = True
 use_split_produce_disparity = False
-use_crop_size = False
-use_resize = True  # only KITTI_2015_benchmark uses this, and it also doesn't have crop_size setting
+use_crop_size = True
+use_resize = False  # only KITTI_2015_benchmark uses this, and it also doesn't have crop_size setting
 
 if use_split_produce_disparity + use_resize + use_crop_size != 1:
     raise Exception('Using only one image regeneration method')
@@ -36,7 +36,7 @@ dataset = ['flyingthings3D', 'KITTI_2015', 'KITTI_2015_benchmark', 'AerialImager
 image = ['cleanpass', 'finalpass']  # for flyingthings3D
 
 used_profile = profile.GDNet_sdc6f()
-dataset = dataset[2]
+dataset = dataset[0]
 if dataset == 'flyingthings3D':
     image = image[1]
 
@@ -80,7 +80,7 @@ elif use_crop_size:
     if dataset == 'flyingthings3D':
         # height, width = 512, 960
         # height, width = 384, 960  # GDNet_mdc6f
-        height, width = 192, 480  # GDNet_sdc6f
+        height, width = 384, 960  # GDNet_sdc6f
 
     elif dataset == 'KITTI_2015':
         # height, width = 352, 1216  # GDNet_mdc6f
@@ -121,7 +121,6 @@ model.eval()
 for batch_index, (X, Y) in enumerate(test_loader):
     with torch.no_grad():
         utils.tic()
-        print(X.size())
 
         if isinstance(used_profile, profile.GDNet_mdc6):
             if use_split_produce_disparity:
@@ -157,11 +156,17 @@ for batch_index, (X, Y) in enumerate(test_loader):
         if plot_and_save_image:
             plotter = utils.CostPlotter()
 
-            plotter.plot_image_disparity(X[0], Y[0, 0], dataset, eval_dict,
-                                         max_disparity=max_disparity, use_resize=use_resize,
-                                         original_width_height=(test_dataset.origin_width, test_dataset.origin_height),
-                                         save_result_file=(f'{used_profile}/{dataset}', batch_index, False,
-                                                           error_rate_str))
+            if dataset == 'KITTI_2015_benchmark':
+                plotter.plot_image_disparity(X[0], Y[0, 0], dataset, eval_dict,
+                                             max_disparity=max_disparity, use_resize=use_resize,
+                                             original_width_height=(test_dataset.origin_width, test_dataset.origin_height),
+                                             save_result_file=(f'{used_profile}/{dataset}', batch_index, False,
+                                                               error_rate_str))
+            else:
+                plotter.plot_image_disparity(X[0], Y[0, 0], dataset, eval_dict,
+                                             max_disparity=max_disparity,
+                                             save_result_file=(f'{used_profile}/{dataset}', batch_index, False,
+                                                               error_rate_str))
         # exit(0)
         # os.system('nvidia-smi')
 
