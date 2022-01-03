@@ -52,7 +52,9 @@ setup.py
 ## Efficiency
 Dual-GANet: 13 seconds per KITTI 2015 image with size 384, 1248
 
-## Setting of model's image
+## Size of input image for models
+
+The size of input images are required to be multiple for specific model.
 
 | Name        | Height | Width  | Max disparity |
 | ----------- | ------ | ------ | ------------- |
@@ -70,5 +72,5 @@ Dual-GANet: 13 seconds per KITTI 2015 image with size 384, 1248
 | KITTI 2015     | 352    | 1216  | 144           |
 
 ## Other
-- Disparity with float32 must multiply 256 in uint16 format
+- Disparity with float32 must multiply 256 to be uint16 format
 - GDNet_dc6, GDNet_dc6f are not finished
