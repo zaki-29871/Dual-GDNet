@@ -1,4 +1,3 @@
-import torch
 from torch.utils.data import DataLoader
 import torch.optim as optim
 from dataset.dataset import *
@@ -8,6 +7,7 @@ import numpy as np
 import os
 import utils
 import traceback
+import datetime
 
 
 version = None
@@ -79,6 +79,7 @@ os.system('nvidia-smi')
 v = version
 while v < max_version + 1:
     try:
+        epoch_start_time = datetime.datetime.now()
         print('Exception count:', exception_count)
         if dataset == 'flyingthings3D':
             if isinstance(used_profile, profile.GDNet_fdc6f):
@@ -194,6 +195,8 @@ while v < max_version + 1:
 
         print('Start save model')
         used_profile.save_version(model, loss_history, v)
+        epoch_end_time = datetime.datetime.now()
+        print(f'[{utils.timespan_str(epoch_end_time - epoch_start_time)}] version = {v}')
         v += 1
 
     except Exception as err:

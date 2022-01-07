@@ -5,9 +5,10 @@ from profile import *
 from colorama import Style
 import profile
 
-# GTX 1660 Ti
-max_disparity = 192  # KITTI 2015
+# GTX 1660 TiTi
+# max_disparity = 192  # KITTI 2015
 # max_disparity = 144  # flyingthings3D
+max_disparity = 160  # flyingthings3D
 # version = 592
 version = None
 seed = 0
@@ -16,14 +17,16 @@ max_disparity_diff = 1.5
 merge_cost = True
 candidate = False
 plot_and_save_image = True
-use_split_produce_disparity = False
+
+# produce disparity methods
+use_split = False
 use_crop_size = True
 use_resize = False  # only KITTI_2015_benchmark uses this, and it also doesn't have crop_size setting
 
-if use_split_produce_disparity + use_resize + use_crop_size != 1:
+if use_split + use_resize + use_crop_size != 1:
     raise Exception('Using only one image regeneration method')
 
-if use_split_produce_disparity:
+if use_split:
     # flyingthings3D
     # split_height, split_width = 256, 960
     split_height, split_width = 416, 960
@@ -48,7 +51,7 @@ print('Using dataset:', dataset)
 print('Max disparity:', max_disparity)
 print('Number of parameters: {:,}'.format(sum(p.numel() for p in model.parameters())))
 print('Plot and save result image:', plot_and_save_image)
-print('Using split produce disparity mode:', use_split_produce_disparity)
+print('Using split produce disparity mode:', use_split)
 print('Using use resize mode:', use_resize)
 print('Using use crop size mode:', use_crop_size)
 
@@ -57,7 +60,7 @@ error = []
 confidence_error = []
 total_eval = []
 
-if use_split_produce_disparity:
+if use_split:
     if dataset == 'flyingthings3D':
         test_dataset = FlyingThings3D(max_disparity, type='test', image=image)
         test_dataset = random_subset(test_dataset, 100, seed=seed)
@@ -123,7 +126,7 @@ for batch_index, (X, Y) in enumerate(test_loader):
         utils.tic()
 
         if isinstance(used_profile, profile.GDNet_mdc6):
-            if use_split_produce_disparity:
+            if use_split:
                 eval_dict = utils.split_prduce_disparity(used_profile, X, Y, dataset, max_disparity, split_height,
                                                          split_width,
                                                          merge_cost=merge_cost, lr_check=False,
