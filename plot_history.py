@@ -16,8 +16,8 @@ class EPE_Loss:
 
 
 version = None
-trend_kernel = 50  # version (plot) + trend kernel = real model version, trend_kernel = [1, n]
-trend_regression_size = 50  # to see the loss is decent or not
+trend_kernel = 75  # version (plot) + trend kernel = real model version, trend_kernel = [1, n]
+trend_regression_size = 75  # to see the loss is decent or not
 trend_method = ['corr', 'regression'][1]
 epe = EPE_Loss()
 used_profile = profile.GDNet_sdc6f()
@@ -64,7 +64,7 @@ if trend_kernel > 1:
         f'Train loss trend: {utils.trend_regression(train_loss_trend[-trend_regression_size:], method=trend_method):.2e}')
     print(
         f'Test loss trend: {utils.trend_regression(test_loss_trend[-trend_regression_size:], method=trend_method):.2e}')
-    print(f'Last test loss - train loss: {test_loss_trend[-1] - train_loss_trend[-1]:.2e}')
+    print(f'Last test loss - train loss (large is overfitting): {test_loss_trend[-1] - train_loss_trend[-1]:.2e}')
 
 plt.axhline(epe.SGM, color='b', linestyle='--', label='SGM (320 images)')
 plt.axhline(epe.MC_CNN, color='g', linestyle='--', label='MC_CNN')

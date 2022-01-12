@@ -6,9 +6,9 @@ from colorama import Style
 import profile
 
 # GTX 1660 TiTi
-# max_disparity = 192  # KITTI 2015
+max_disparity = 192  # KITTI 2015
 # max_disparity = 144  # flyingthings3D
-max_disparity = 160  # flyingthings3D
+# max_disparity = 160  # flyingthings3D
 # version = 592
 version = None
 seed = 0
@@ -20,26 +20,17 @@ plot_and_save_image = True
 
 # produce disparity methods
 use_split = False
-use_crop_size = True
-use_resize = False  # only KITTI_2015_benchmark uses this, and it also doesn't have crop_size setting
+use_crop_size = False
+use_resize = True  # only KITTI_2015_benchmark uses this, and it also doesn't have crop_size setting
 
 if use_split + use_resize + use_crop_size != 1:
     raise Exception('Using only one image regeneration method')
-
-if use_split:
-    # flyingthings3D
-    # split_height, split_width = 256, 960
-    split_height, split_width = 416, 960
-
-    # KITTI, 2015
-    # split_height, split_width = 352, 960
-    # split_height, split_width = 192, 1216
 
 dataset = ['flyingthings3D', 'KITTI_2015', 'KITTI_2015_benchmark', 'AerialImagery']
 image = ['cleanpass', 'finalpass']  # for flyingthings3D
 
 used_profile = profile.GDNet_sdc6f()
-dataset = dataset[0]
+dataset = dataset[2]
 if dataset == 'flyingthings3D':
     image = image[1]
 
@@ -62,11 +53,15 @@ total_eval = []
 
 if use_split:
     if dataset == 'flyingthings3D':
+        # split_height, split_width = 256, 960
+        split_height, split_width = 416, 960
         test_dataset = FlyingThings3D(max_disparity, type='test', image=image)
         test_dataset = random_subset(test_dataset, 100, seed=seed)
 
     elif dataset == 'KITTI_2015':
         # train_ratio=0.99 for size 2 images
+        # split_height, split_width = 352, 960
+        split_height, split_width = 192, 1216
         train_dataset, test_dataset = random_split(
             KITTI_2015(type='train', untexture_rate=0), train_ratio=0.8, seed=seed)
 
@@ -96,7 +91,7 @@ elif use_crop_size:
     if dataset == 'flyingthings3D':
         test_dataset = FlyingThings3D(max_disparity, crop_size=(height, width), type='test', crop_seed=0,
                                       image=image)
-        test_dataset = random_subset(test_dataset, 100, seed=seed)
+        test_dataset = random_subset(test_dataset, 1, seed=seed)
 
     elif dataset == 'KITTI_2015':
         train_dataset, test_dataset = random_split(
@@ -108,6 +103,9 @@ elif use_crop_size:
         height, width = AerialImagery.image_size
         test_dataset = AerialImagery()
 
+    else:
+        raise Exception('Cannot find dataset: ' + dataset)
+
 elif use_resize:
     if dataset == 'KITTI_2015_benchmark':
         # height, width = 352, 1216  # GDNet_mdc6f
@@ -116,6 +114,9 @@ elif use_resize:
 
     if dataset == 'KITTI_2015_benchmark':
         test_dataset = KITTI_2015_benchmark(use_resize=True, resize=(height, width))
+
+    else:
+        raise Exception('Cannot find dataset: ' + dataset)
 
 print('Image size:', (height, width))
 test_loader = DataLoader(test_dataset, batch_size=1, shuffle=False)
@@ -162,7 +163,8 @@ for batch_index, (X, Y) in enumerate(test_loader):
             if dataset == 'KITTI_2015_benchmark':
                 plotter.plot_image_disparity(X[0], Y[0, 0], dataset, eval_dict,
                                              max_disparity=max_disparity, use_resize=use_resize,
-                                             original_width_height=(test_dataset.origin_width, test_dataset.origin_height),
+                                             original_width_height=(
+                                             test_dataset.origin_width, test_dataset.origin_height),
                                              save_result_file=(f'{used_profile}/{dataset}', batch_index, False,
                                                                error_rate_str))
             else:
@@ -179,5 +181,7 @@ print(f'avg error rates = {np.array(error).sum() / np.array(total_eval).sum():.2
 if merge_cost:
     print(f'avg confidence error = {np.array(confidence_error).mean():.3f}')
 print('Number of test case:', len(losses))
-print('Excel format:',
-      f'{np.array(losses).mean():.3f}\t{np.array(losses).std():.3f}\t{np.array(error).sum() / np.array(total_eval).sum():.2%}\t{np.array(confidence_error).mean():.3f}')
+print('Excel format:')
+print(f'v{version}')
+print(
+    f'{used_profile}\t{np.array(losses).mean():.3f}\t{np.array(losses).std():.3f}\t{np.array(error).sum() / np.array(total_eval).sum():.2%}\t{np.array(confidence_error).mean():.3f}')

@@ -582,7 +582,7 @@ def error_rate(input, target, dataset):
         error_mask = (input - target).abs() >= 1
         return error_mask.float().sum()
 
-    elif dataset in ['KITTI_2015', 'KITTI_2015_benchmark']:
+    elif dataset in ['KITTI_2015', 'KITTI_2015_benchmark', 'KITTI_2015_Augmentation']:
         l1 = (input - target).abs()
         error_mask = l1 >= 3
         error_mask &= (l1 / target.abs()) >= 0.05

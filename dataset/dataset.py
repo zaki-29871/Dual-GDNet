@@ -111,7 +111,7 @@ class KITTI_2015(Dataset):
     # HEIGHT, WIDTH = 352, 1216  # GTX 2080 Ti
     # HEIGHT, WIDTH = 256, 1248  # GTX 1660 Ti
 
-    def __init__(self, crop_size=None, type='train', crop_seed=None, untexture_rate=0.1):
+    def __init__(self, type='train', crop_size=None, crop_seed=None, untexture_rate=0.1):
         assert os.path.exists(self.ROOT), 'Dataset path is not exist'
         self.type = type
         if type == 'train':
@@ -230,6 +230,71 @@ class KITTI_2015_benchmark(Dataset):
 
     def __len__(self):
         return 200
+
+class KITTI_2015_Augmentation(Dataset):
+    ROOT = r'F:\Dataset\KITTI 2015 Data Augmentation'
+
+    # KITTI 2015 original height and width (375, 1242, 3), dtype uint8
+    # min_width: 998
+    # max_width: 2496
+    # min_height: 307
+    # max_height: 768
+
+    def __init__(self, type='train', crop_size=None, crop_seed=None, seed=0):
+        assert os.path.exists(self.ROOT), 'Dataset path is not exist'
+        self.type = type
+        self.files = os.listdir(os.path.join(self.ROOT, 'image_2'))
+        np.random.seed(seed)
+        indexes = np.arange(len(self.files))
+        np.random.shuffle(indexes)
+        self.train_indexes = indexes[:14400]
+        self.test_indexes = indexes[14400:]
+        self.crop_size = crop_size
+        self.crop_seed = crop_seed
+
+    def __getitem__(self, index):
+        if self.type == 'train':
+            X1 = cv2.imread(os.path.join(self.ROOT, f'image_2/{self.files[self.train_indexes[index]]}'))
+            X2 = cv2.imread(os.path.join(self.ROOT, f'image_3/{self.files[self.train_indexes[index]]}'))
+            Y = cv2.imread(os.path.join(self.ROOT, f'disp_occ_0/{self.files[self.train_indexes[index]]}'))
+
+            X1 = utils.rgb2bgr(X1)
+            X2 = utils.rgb2bgr(X2)
+
+            X = np.concatenate([X1, X2], axis=2)
+            X = X.swapaxes(0, 2).swapaxes(1, 2)
+            Y = Y[:, :, 0]
+            X, Y = torch.from_numpy(X).float(), torch.from_numpy(Y)
+            Y = Y.unsqueeze(0)
+            if self.crop_size is not None:
+                cropper = utils.RandomCropper(X1.shape[0:2], self.crop_size, seed=self.crop_seed)
+                X, Y = cropper.crop(X), cropper.crop(Y)
+            X, Y = X.float() / 255, Y.float()
+            return X.cuda(), Y.cuda()
+
+        elif self.type == 'test':
+            X1 = cv2.imread(os.path.join(self.ROOT, f'image_2/{self.files[self.test_indexes[index]]}'))
+            X2 = cv2.imread(os.path.join(self.ROOT, f'image_3/{self.files[self.test_indexes[index]]}'))
+
+            X1 = utils.rgb2bgr(X1)
+            X2 = utils.rgb2bgr(X2)
+
+            X = np.concatenate([X1, X2], axis=2)
+            X = X.swapaxes(0, 2).swapaxes(1, 2)
+            X = torch.from_numpy(X)
+            if self.crop_size is not None:
+                cropper = utils.RandomCropper(X1.shape[0:2], self.crop_size, seed=self.crop_seed)
+                X = cropper.crop(X)
+            X = X / 255.0
+            Y = torch.ones((1, X.size(1), X.size(2)), dtype=torch.float)
+
+            return X.cuda(), Y.cuda()
+
+    def __len__(self):
+        if self.type == 'train':
+            return 14400
+        if self.type == 'test':
+            return 3600
 
 
 class AerialImagery(Dataset):

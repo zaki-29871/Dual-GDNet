@@ -9,7 +9,6 @@ import utils
 import traceback
 import datetime
 
-
 version = None
 max_version = 2000  # KITTI 2015 v1497 recommended version
 batch = 1
@@ -19,7 +18,7 @@ full_dataset = True
 small_dataset = False
 is_plot_image = False
 untexture_rate = 0
-dataset = ['flyingthings3D', 'KITTI_2015']
+dataset = ['flyingthings3D', 'KITTI_2015', 'KITTI_2015_Augmentation']
 image = ['cleanpass', 'finalpass']  # for flyingthings3D
 exception_count = 0
 
@@ -66,8 +65,12 @@ if dataset == 'flyingthings3D':
 
 elif dataset == 'KITTI_2015':
     train_dataset, test_dataset = random_split(
-        KITTI_2015(max_disparity, crop_size=(height, width), type='train', crop_seed=None,
+        KITTI_2015(crop_size=(height, width), type='train', crop_seed=None,
                    untexture_rate=untexture_rate), seed=seed)
+
+elif dataset == 'KITTI_2015_Augmentation':
+    train_dataset, test_dataset = random_split(
+        KITTI_2015_Augmentation(crop_size=(height, width), type='train', crop_seed=None, seed=0), seed=seed)
 else:
     raise Exception('Cannot find dataset: ' + dataset)
 
@@ -92,6 +95,11 @@ while v < max_version + 1:
         elif dataset == 'KITTI_2015':
             train_loader = DataLoader(random_subset(train_dataset, 160), batch_size=batch, shuffle=False)
             test_loader = DataLoader(random_subset(test_dataset, 40), batch_size=batch, shuffle=False)
+
+        elif dataset == 'KITTI_2015_Augmentation':
+            train_loader = DataLoader(random_subset(train_dataset, 192), batch_size=batch, shuffle=False)
+            test_loader = DataLoader(random_subset(test_dataset, 48), batch_size=batch, shuffle=False)
+
         else:
             raise Exception('Cannot find dataset: ' + dataset)
 
@@ -206,4 +214,4 @@ while v < max_version + 1:
         v -= 1
         if exception_count >= 50:
             exit(-1)
-        # exit(-1)
+        exit(-1)

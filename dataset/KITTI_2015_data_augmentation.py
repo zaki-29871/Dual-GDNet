@@ -12,7 +12,8 @@ copy_size = 200
 # gaussian_noises = [(0.05, 0, 0.05)]  # ratio [0, 1], mean, std
 blur_kernels = [3, 5]
 scale_ratios = [0.8, 1.2, 1.5, 2]
-gaussian_noises = [(0.05, 0, 0.05), (0.1, 0, 0.05)]  # ratio [0, 1], mean, std
+gaussian_noises = [(0.3, 0, 0.075), (0.5, 0, 0.05)]  # ratio [0, 1], mean, std
+count = 1
 
 if os.path.exists(destination_folder):
     shutil.rmtree(destination_folder)
@@ -22,13 +23,14 @@ os.makedirs(os.path.join(destination_folder, 'image_3'), exist_ok=True)
 os.makedirs(os.path.join(destination_folder, 'disp_occ_0'), exist_ok=True)
 
 augmentation_multiplier = 2 * (len(blur_kernels) + 1) * (len(scale_ratios) + 1) * (len(gaussian_noises) + 1)
+total_data_size = copy_size * augmentation_multiplier
 print('Original data size:', copy_size)
 print('Augmentation multiplier:', augmentation_multiplier)
-print('Augment data size:', copy_size * augmentation_multiplier)
+print('Augmented total data size:', copy_size * augmentation_multiplier)
 
 # Copy original images
 for i in range(0, copy_size):
-    print(f'Copy index {i}')
+    print(f'[{count}/{total_data_size} {count/total_data_size:.0%}] Copy index {i}')
     # All (376, 1241, 3) uint8
     X1_path = f'{i:06d}_10'
     X2_path = f'{i:06d}_10'
@@ -42,9 +44,11 @@ for i in range(0, copy_size):
     cv2.imwrite(os.path.join(destination_folder, 'image_3', f'{X2_path}.png'), X2)
     cv2.imwrite(os.path.join(destination_folder, 'disp_occ_0', f'{Y_path}.png'), Y)
 
+    count += 1
+
 # Vertical flipping images
 for X1_path_original in os.listdir(os.path.join(destination_folder, 'image_2')):
-    print(f'Vertical flipping {X1_path_original}')
+    print(f'[{count}/{total_data_size} {count/total_data_size:.0%}] Vertical flipping {X1_path_original}')
     X1_path = X1_path_original.split('.')[0]
     X2_path = X1_path_original.split('.')[0]
     Y_path = X1_path_original.split('.')[0]
@@ -62,10 +66,12 @@ for X1_path_original in os.listdir(os.path.join(destination_folder, 'image_2')):
     cv2.imwrite(os.path.join(destination_folder, 'image_3', f'{X2_path}_flip.png'), X2)
     cv2.imwrite(os.path.join(destination_folder, 'disp_occ_0', f'{Y_path}_flip.png'), Y)
 
+    count += 1
+
 # Blurring images
 for X1_path_original in os.listdir(os.path.join(destination_folder, 'image_2')):
     for blur_kernel in blur_kernels:
-        print(f'Blurring images {X1_path_original}, blur kernel = {blur_kernel}')
+        print(f'[{count}/{total_data_size} {count/total_data_size:.0%}] Blurring images {X1_path_original}, blur kernel = {blur_kernel}')
         X1_path = X1_path_original.split('.')[0]
         X2_path = X1_path_original.split('.')[0]
         Y_path = X1_path_original.split('.')[0]
@@ -81,10 +87,11 @@ for X1_path_original in os.listdir(os.path.join(destination_folder, 'image_2')):
         cv2.imwrite(os.path.join(destination_folder, 'image_3', f'{X2_path}_blur_{blur_kernel}.png'), X2)
         cv2.imwrite(os.path.join(destination_folder, 'disp_occ_0', f'{Y_path}_blur_{blur_kernel}.png'), Y)
 
+        count += 1
 # Scaling images
 for X1_path_original in os.listdir(os.path.join(destination_folder, 'image_2')):
     for scale_ratio in scale_ratios:
-        print(f'Scaling images {X1_path_original}, scale_ratio = {scale_ratio}')
+        print(f'[{count}/{total_data_size} {count/total_data_size:.0%}] Scaling images {X1_path_original}, scale_ratio = {scale_ratio}')
         X1_path = X1_path_original.split('.')[0]
         X2_path = X1_path_original.split('.')[0]
         Y_path = X1_path_original.split('.')[0]
@@ -104,28 +111,33 @@ for X1_path_original in os.listdir(os.path.join(destination_folder, 'image_2')):
         cv2.imwrite(os.path.join(destination_folder, 'image_3', f'{X2_path}_scale_{scale_ratio_str}.png'), X2)
         cv2.imwrite(os.path.join(destination_folder, 'disp_occ_0', f'{Y_path}_scale_{scale_ratio_str}.png'), Y)
 
+        count += 1
 # Add Gaussian noises
 for X1_path_original in os.listdir(os.path.join(destination_folder, 'image_2')):
     for ratio, mean, std in gaussian_noises:
-        print(f'Add Gaussian noises {X1_path_original}, ratio = {ratio}, mean = {mean}, std = {std}')
+        print(f'[{count}/{total_data_size} {count/total_data_size:.0%}] Add Gaussian noises {X1_path_original}, ratio = {ratio}, mean = {mean}, std = {std}')
         X1_path = X1_path_original.split('.')[0]
         X2_path = X1_path_original.split('.')[0]
         Y_path = X1_path_original.split('.')[0]
 
-        X1 = cv2.imread(os.path.join(destination_folder, 'image_2', f'{X1_path}.png'))
-        X2 = cv2.imread(os.path.join(destination_folder, 'image_3', f'{X2_path}.png'))
+        X1 = cv2.imread(os.path.join(destination_folder, 'image_2', f'{X1_path}.png')).astype('float64')
+        X2 = cv2.imread(os.path.join(destination_folder, 'image_3', f'{X2_path}.png')).astype('float64')
         Y = cv2.imread(os.path.join(destination_folder, 'disp_occ_0', f'{Y_path}.png'))
 
         noise_mask = np.random.random(X1.shape[:2]) <= ratio
         noise = np.random.normal(mean, std, X1.shape[:2]) * 255
         for i in range(3):
-            X1[..., i][noise_mask] = X1[..., i].astype('float64')[noise_mask] + noise[noise_mask]
+            X1[..., i][noise_mask] = X1[..., i][noise_mask] + noise[noise_mask]
+        X1[X1 > 255] = 255
+        X1[X1 < 0] = 0
         X1 = X1.astype('uint8')
 
         noise_mask = np.random.random(X2.shape[:2]) <= ratio
         noise = np.random.normal(mean, std, X2.shape[:2]) * 255
         for i in range(3):
-            X2[..., i][noise_mask] = X2[..., i].astype('float64')[noise_mask] + noise[noise_mask]
+            X2[..., i][noise_mask] = X2[..., i][noise_mask] + noise[noise_mask]
+        X2[X2 > 255] = 255
+        X2[X2 < 0] = 0
         X2 = X2.astype('uint8')
 
         gaussian_noise_str = str(ratio).replace('.', '-') + '_' + str(mean).replace('.', '-') + '_' + str(std).replace(
@@ -133,3 +145,5 @@ for X1_path_original in os.listdir(os.path.join(destination_folder, 'image_2')):
         cv2.imwrite(os.path.join(destination_folder, 'image_2', f'{X1_path}_noise_{gaussian_noise_str}.png'), X1)
         cv2.imwrite(os.path.join(destination_folder, 'image_3', f'{X2_path}_noise_{gaussian_noise_str}.png'), X2)
         cv2.imwrite(os.path.join(destination_folder, 'disp_occ_0', f'{Y_path}_noise_{gaussian_noise_str}.png'), Y)
+
+        count += 1
