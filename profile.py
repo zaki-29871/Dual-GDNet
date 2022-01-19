@@ -13,6 +13,7 @@ import GDNet.GDNet_sdc6f
 import GDNet.GDNet_fdc6
 import GDNet.GDNet_fdc6f
 import os
+import cv2
 import utils
 import torch
 import torch.nn.functional as F
@@ -317,7 +318,7 @@ class GDNet_basic(GDNet_c):
         return train_dict
 
     def eval(self, X, Y, dataset, merge_cost=True, lr_check=False, candidate=False, regression=True, penalize=False,
-             slope=1, max_disparity_diff=1.5):
+             slope=1, max_disparity_diff=1.5, use_resize=False, use_dataset=None):
         assert not (merge_cost and lr_check), 'do not use merge cost and lr check at the same time'
         assert not (candidate and lr_check), 'do not use candidate error rate and lr check at the same time'
         assert not self.model.training
@@ -418,6 +419,10 @@ class GDNet_basic(GDNet_c):
             error_sum = utils.error_rate_candidate(disp, Y, dataset, mask)
 
         else:
+            if use_resize:
+                disp_left = disp_left[0].data.cpu().numpy()
+                disp_left = cv2.resize(disp_left, (use_dataset.original_width, use_dataset.original_height))
+                disp_left = torch.from_numpy(disp_left).unsqueeze(0).cuda()
             epe_loss = utils.EPE_loss(disp_left[mask], Y[mask])
             error_sum = utils.error_rate(disp_left[mask], Y[mask], dataset)
 

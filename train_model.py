@@ -11,7 +11,7 @@ import datetime
 
 version = None
 max_version = 2000  # KITTI 2015 v1497 recommended version
-batch = 1
+batch = 3
 seed = 0
 loss_threshold = 10
 full_dataset = True
@@ -23,14 +23,18 @@ image = ['cleanpass', 'finalpass']  # for flyingthings3D
 exception_count = 0
 
 used_profile = profile.GDNet_sdc6f()
-dataset = dataset[0]
+dataset = dataset[2]
 if dataset == 'flyingthings3D':
     image = image[1]
 
 # GTX 1660 Ti
 if isinstance(used_profile, profile.GDNet_sdc6f):
-    height, width = 192, 576  # 576 - 192 = 384
-    max_disparity = 192
+    # height, width = 192, 576  # 576 - 192 = 384
+    # max_disparity = 192
+
+    # v655
+    height, width = 128, 384  # 384 - 128 = 256
+    max_disparity = 128
 
 elif isinstance(used_profile, profile.GDNet_mdc6f):
     height, width = 192, 576  # 576 - 144 = 432
@@ -69,8 +73,9 @@ elif dataset == 'KITTI_2015':
                    untexture_rate=untexture_rate), seed=seed)
 
 elif dataset == 'KITTI_2015_Augmentation':
-    train_dataset, test_dataset = random_split(
-        KITTI_2015_Augmentation(crop_size=(height, width), type='train', crop_seed=None, seed=0), seed=seed)
+    train_dataset = KITTI_2015_Augmentation(crop_size=(height, width), type='train', crop_seed=None, seed=0)
+    test_dataset = KITTI_2015_Augmentation(crop_size=(height, width), type='test', crop_seed=None, seed=0)
+
 else:
     raise Exception('Cannot find dataset: ' + dataset)
 
@@ -153,8 +158,9 @@ while v < max_version + 1:
                                              max_disparity=max_disparity)
 
             if torch.isnan(loss):
-                print('detect loss nan in training')
-                exit(0)
+                # print('detect loss nan in training')
+                # exit(0)
+                raise Exception('detect loss nan in training')
 
         train_loss = float(torch.tensor(train_loss).mean())
         print(f'Avg train loss = {utils.threshold_color(train_loss)}{train_loss:.3f}{Style.RESET_ALL}')
@@ -189,8 +195,9 @@ while v < max_version + 1:
                                                  max_disparity=max_disparity)
 
                 if torch.isnan(eval_dict["epe_loss"]):
-                    print('detect loss nan in testing')
-                    exit(0)
+                    # print('detect loss nan in testing')
+                    # exit(0)
+                    raise Exception('detect loss nan in testing')
 
         test_loss = float(torch.tensor(test_loss).mean())
         test_error_rate = np.array(error).sum() / np.array(total_eval).sum()
@@ -212,6 +219,6 @@ while v < max_version + 1:
         traceback.print_exc()
         exception_count += 1
         v -= 1
-        if exception_count >= 50:
-            exit(-1)
-        exit(-1)
+        # if exception_count >= 50:
+        #     exit(-1)
+        # exit(-1)

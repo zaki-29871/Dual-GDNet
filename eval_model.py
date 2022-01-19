@@ -91,11 +91,11 @@ elif use_crop_size:
     if dataset == 'flyingthings3D':
         test_dataset = FlyingThings3D(max_disparity, crop_size=(height, width), type='test', crop_seed=0,
                                       image=image)
-        test_dataset = random_subset(test_dataset, 1, seed=seed)
+        test_dataset = random_subset(test_dataset, 100, seed=seed)
 
     elif dataset == 'KITTI_2015':
         train_dataset, test_dataset = random_split(
-            KITTI_2015(crop_size=(height, width), type='train', crop_seed=0, untexture_rate=0),
+            KITTI_2015(use_crop_size=True, crop_size=(height, width), type='train', crop_seed=0, untexture_rate=0),
             train_ratio=0.8,
             seed=seed)
 
@@ -107,13 +107,18 @@ elif use_crop_size:
         raise Exception('Cannot find dataset: ' + dataset)
 
 elif use_resize:
-    if dataset == 'KITTI_2015_benchmark':
+    if dataset in ['KITTI_2015', 'KITTI_2015_benchmark']:
         # height, width = 352, 1216  # GDNet_mdc6f
         height, width = 384, 1280  # GDNet_sdc6f
         # height, width = 336, 1200  # GDNet_dc6f
 
-    if dataset == 'KITTI_2015_benchmark':
-        test_dataset = KITTI_2015_benchmark(use_resize=True, resize=(height, width))
+    if dataset == 'KITTI_2015':
+        use_dataset = KITTI_2015(type='train', untexture_rate=0, use_resize=True, resize=(height, width))
+        train_dataset, test_dataset = random_split(use_dataset, train_ratio=0.8, seed=seed)
+
+    elif dataset == 'KITTI_2015_benchmark':
+        use_dataset = KITTI_2015_benchmark(use_resize=True, resize=(height, width))
+        test_dataset = use_dataset
 
     else:
         raise Exception('Cannot find dataset: ' + dataset)
@@ -139,7 +144,7 @@ for batch_index, (X, Y) in enumerate(test_loader):
                                               regression=True,
                                               penalize=False, slope=1, max_disparity_diff=1.5)
         else:
-            eval_dict = used_profile.eval(X, Y, dataset)
+            eval_dict = used_profile.eval(X, Y, dataset, use_resize=use_resize, use_dataset=use_dataset)
 
         time = utils.timespan_str(utils.toc(True))
         loss_str = f'loss = {utils.threshold_color(eval_dict["epe_loss"])}{eval_dict["epe_loss"]:.3f}{Style.RESET_ALL}'
@@ -164,7 +169,7 @@ for batch_index, (X, Y) in enumerate(test_loader):
                 plotter.plot_image_disparity(X[0], Y[0, 0], dataset, eval_dict,
                                              max_disparity=max_disparity, use_resize=use_resize,
                                              original_width_height=(
-                                             test_dataset.origin_width, test_dataset.origin_height),
+                                                 test_dataset.original_width, test_dataset.original_height),
                                              save_result_file=(f'{used_profile}/{dataset}', batch_index, False,
                                                                error_rate_str))
             else:
