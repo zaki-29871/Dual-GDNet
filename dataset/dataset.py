@@ -192,20 +192,36 @@ class KITTI_2015(Dataset):
                 return X.cuda(), Y.cuda()
 
         elif self.type == 'test':
-            X1 = cv2.imread(os.path.join(self.root, 'image_2/{:06d}_10.png'.format(index)))
-            X2 = cv2.imread(os.path.join(self.root, 'image_3/{:06d}_10.png'.format(index)))
+            if self.use_resize:
+                X1 = cv2.imread(os.path.join(self.root, 'image_2/{:06d}_10.png'.format(index)))
+                X2 = cv2.imread(os.path.join(self.root, 'image_3/{:06d}_10.png'.format(index)))
+                self.original_height, self.original_width = X1.shape[:2]
 
-            X1 = utils.rgb2bgr(X1)
-            X2 = utils.rgb2bgr(X2)
+                X1 = cv2.resize(X1, (self.resize_width, self.resize_height))
+                X2 = cv2.resize(X2, (self.resize_width, self.resize_height))
 
-            X = np.concatenate([X1, X2], axis=2)
-            X = X.swapaxes(0, 2).swapaxes(1, 2)
-            X = torch.from_numpy(X)
-            if self.crop_size is not None:
+                X1 = utils.rgb2bgr(X1)
+                X2 = utils.rgb2bgr(X2)
+
+                X = np.concatenate([X1, X2], axis=2)  # batch, height, width, channel
+                X = X.swapaxes(0, 2).swapaxes(1, 2)  # channel*2, height, width
+
+                Y = torch.ones((1, X.size(1), X.size(2)), dtype=torch.float)
+
+            elif self.use_crop_size:
+                X1 = cv2.imread(os.path.join(self.root, 'image_2/{:06d}_10.png'.format(index)))
+                X2 = cv2.imread(os.path.join(self.root, 'image_3/{:06d}_10.png'.format(index)))
+
+                X1 = utils.rgb2bgr(X1)
+                X2 = utils.rgb2bgr(X2)
+
+                X = np.concatenate([X1, X2], axis=2)
+                X = X.swapaxes(0, 2).swapaxes(1, 2)
+
                 cropper = utils.RandomCropper(X1.shape[0:2], self.crop_size, seed=self.crop_seed)
                 X = cropper.crop(X)
-            X = X / 255.0
-            Y = torch.ones((1, X.size(1), X.size(2)), dtype=torch.float)
+
+                Y = torch.ones((1, X.size(1), X.size(2)), dtype=torch.float)
 
             return X.cuda(), Y.cuda()
 
