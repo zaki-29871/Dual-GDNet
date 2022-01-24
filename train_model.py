@@ -102,8 +102,8 @@ while v < max_version + 1:
             test_loader = DataLoader(random_subset(test_dataset, 40), batch_size=batch, shuffle=False)
 
         elif dataset == 'KITTI_2015_Augmentation':
-            train_loader = DataLoader(random_subset(train_dataset, 192), batch_size=batch, shuffle=False)
-            test_loader = DataLoader(random_subset(test_dataset, 48), batch_size=batch, shuffle=False)
+            train_loader = DataLoader(random_subset(train_dataset, 576), batch_size=batch, shuffle=False)
+            test_loader = DataLoader(random_subset(test_dataset, 144), batch_size=batch, shuffle=False)
 
         else:
             raise Exception('Cannot find dataset: ' + dataset)

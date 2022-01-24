@@ -634,7 +634,7 @@ def threshold_color(loss):
 
 def y_mask(Y, max_disparity, dataset):
     mask = (Y < max_disparity - 1)
-    if dataset == 'KITTI_2015':
+    if dataset in ['KITTI_2015', 'KITTI_2015', 'KITTI_2015_Augmentation']:
         mask = mask & (Y != 0)
     return mask
 

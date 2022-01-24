@@ -98,7 +98,5 @@ for i in range(total_data_size):
         if height > max_height:
             max_height = height
 
-print(f'min_width: {min_width}')
-print(f'max_width: {max_width}')
-print(f'min_height: {min_height}')
-print(f'max_height: {max_height}')
+print(f'width = [{min_width}, {max_width}]')
+print(f'height = [{min_height}, {max_height}]')

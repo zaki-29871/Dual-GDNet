@@ -30,7 +30,7 @@ dataset = ['flyingthings3D', 'KITTI_2015', 'KITTI_2015_benchmark', 'AerialImager
 image = ['cleanpass', 'finalpass']  # for flyingthings3D
 
 used_profile = profile.GDNet_sdc6f()
-dataset = dataset[2]
+dataset = dataset[1]
 if dataset == 'flyingthings3D':
     image = image[1]
 
@@ -187,6 +187,9 @@ if merge_cost:
     print(f'avg confidence error = {np.array(confidence_error).mean():.3f}')
 print('Number of test case:', len(losses))
 print('Excel format:')
-print(f'v{version}')
-print(
-    f'{used_profile}\t{np.array(losses).mean():.3f}\t{np.array(losses).std():.3f}\t{np.array(error).sum() / np.array(total_eval).sum():.2%}\t{np.array(confidence_error).mean():.3f}')
+# print(f'v{version - 1}'
+#       f'{used_profile}\t{np.array(losses).mean():.3f}\t{np.array(losses).std():.3f}\t'
+#       f'{np.array(error).sum() / np.array(total_eval).sum():.2%}\t{np.array(confidence_error).mean():.3f}')
+
+print(f'v{version - 1}\t{np.array(losses).mean():.3f}\t{np.array(losses).std():.3f}\t'
+      f'{np.array(error).sum() / np.array(total_eval).sum():.2%}\t{np.array(confidence_error).mean():.3f}')

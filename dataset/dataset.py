@@ -154,7 +154,8 @@ class KITTI_2015(Dataset):
                 if self.use_resize:
                     X1 = cv2.imread(os.path.join(self.root, 'image_2/{:06d}_10.png'.format(index)))
                     X2 = cv2.imread(os.path.join(self.root, 'image_3/{:06d}_10.png'.format(index)))
-                    Y = cv2.imread(os.path.join(self.root, 'disp_occ_0/{:06d}_10.png'.format(index)))  # (376, 1241, 3) uint8
+                    Y = cv2.imread(
+                        os.path.join(self.root, 'disp_occ_0/{:06d}_10.png'.format(index)))  # (376, 1241, 3) uint8
                     self.original_height, self.original_width = X1.shape[:2]
 
                     X1 = cv2.resize(X1, (self.resize_width, self.resize_height))
@@ -271,10 +272,8 @@ class KITTI_2015_Augmentation(Dataset):
     ROOT = r'F:\Dataset\KITTI 2015 Data Augmentation'
 
     # KITTI 2015 original height and width (375, 1242, 3), dtype uint8
-    # min_width: 998
-    # max_width: 2496
-    # min_height: 307
-    # max_height: 768
+    # width range = [1224, 1242]
+    # height range = [370, 376]
 
     def __init__(self, type='train', crop_size=None, crop_seed=None, seed=0):
         assert os.path.exists(self.ROOT), 'Dataset path is not exist'
@@ -299,6 +298,7 @@ class KITTI_2015_Augmentation(Dataset):
 
             X = np.concatenate([X1, X2], axis=2)
             X = X.swapaxes(0, 2).swapaxes(1, 2)
+
             Y = Y[:, :, 0]
             X, Y = torch.from_numpy(X).float(), torch.from_numpy(Y)
             Y = Y.unsqueeze(0)
@@ -306,6 +306,7 @@ class KITTI_2015_Augmentation(Dataset):
                 cropper = utils.RandomCropper(X1.shape[0:2], self.crop_size, seed=self.crop_seed)
                 X, Y = cropper.crop(X), cropper.crop(Y)
             X, Y = X.float() / 255, Y.float()
+
             return X.cuda(), Y.cuda()
 
         elif self.type == 'test':

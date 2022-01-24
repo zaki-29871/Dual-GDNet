@@ -12,7 +12,7 @@ copy_size = 200
 # gaussian_noises = [(0.05, 0, 0.05)]  # ratio [0, 1], mean, std
 blur_kernels = [3, 5]
 # scale_ratios = [0.8, 1.2, 1.5, 2]
-gaussian_noises = [(0.1, 0, 0.025), (0.3, 0, 0.075), (0.5, 0, 0.05)]  # ratio [0, 1], mean, std
+gaussian_noises = [(0.1, 0, 0.2), (0.3, 0, 0.1), (0.5, 0, 0.05)]  # ratio [0, 1], mean, std
 count = 1
 
 if os.path.exists(destination_folder):

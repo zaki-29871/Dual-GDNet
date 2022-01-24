@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import profile
 import numpy as np
 import utils
-
+from colorama import Fore, Style
 
 class EPE_Loss:
     def __init__(self):
@@ -14,10 +14,16 @@ class EPE_Loss:
         self.GANetSmall = 6.478
         self.CSPN = 0.78
 
+def get_color(value):
+    if value < 0:
+        return Fore.GREEN
+    else:
+        return Fore.RED
+
 
 version = None
 trend_kernel = 10  # version (plot) + trend kernel = real model version, trend_kernel = [1, n]
-trend_regression_size = 10  # to see the loss is decent or not, trend_regression_size = [1, n]
+trend_regression_size = 30  # to see the loss is decent or not, trend_regression_size = [1, n]
 trend_method = ['corr', 'regression'][1]
 epe = EPE_Loss()
 used_profile = profile.GDNet_sdc6f()
@@ -60,18 +66,24 @@ if trend_kernel > 1:
     plt.plot(train_loss_trend, label='Train Trend', marker=marker)
 
     print('Trend method:', trend_method)
-    print(
-        f'Train loss trend: {utils.trend_regression(train_loss_trend[-trend_regression_size:], method=trend_method):.2e}')
-    print(
-        f'Test loss trend: {utils.trend_regression(test_loss_trend[-trend_regression_size:], method=trend_method):.2e}')
-    print(f'Last test loss - train loss (large is overfitting): {test_loss_trend[-1] - train_loss_trend[-1]:.2e}')
 
-plt.axhline(epe.SGM, color='b', linestyle='--', label='SGM (320 images)')
-plt.axhline(epe.MC_CNN, color='g', linestyle='--', label='MC_CNN')
-plt.axhline(epe.GCNet, color='r', linestyle='--', label='GCNet')
+    train_loss_trend_regression = utils.trend_regression(train_loss_trend[-trend_regression_size:], method=trend_method)
+    test_loss_trend_regression = utils.trend_regression(test_loss_trend[-trend_regression_size:], method=trend_method)
+    test_train_diff = test_loss_trend[-1] - train_loss_trend[-1]
+    train_loss_trend_color = None
+    test_loss_trend_color = None
+    test_train_diff_color = None
+
+    print(f'Train loss trend: {get_color(train_loss_trend_regression)}{train_loss_trend_regression:.2e}{Style.RESET_ALL}')
+    print(f'Test loss trend: {get_color(test_loss_trend_regression)}{test_loss_trend_regression:.2e}{Style.RESET_ALL}')
+    print(f'Last test loss - train loss (large is overfitting): {get_color(test_train_diff)}{test_train_diff:.2e}{Style.RESET_ALL}')
+
+# plt.axhline(epe.SGM, color='b', linestyle='--', label='SGM (320 images)')
+# plt.axhline(epe.MC_CNN, color='g', linestyle='--', label='MC_CNN')
+# plt.axhline(epe.GCNet, color='r', linestyle='--', label='GCNet')
 plt.axhline(epe.PSMNet, color='c', linestyle='--', label='PSMNet')
 plt.axhline(epe.GANet, color='m', linestyle='--', label='GANet-15')
-plt.axhline(epe.GANetSmall, color='y', linestyle='--', label='GANet-small (320 images)')
+# plt.axhline(epe.GANetSmall, color='y', linestyle='--', label='GANet-small (320 images)')
 plt.axhline(epe.CSPN, color='k', linestyle='--', label='3DCSPN_ds_ss + CSPF')
 
 plt.legend()
