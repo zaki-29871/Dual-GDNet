@@ -74,9 +74,3 @@ The size of input images are required to be multiple for specific model.
 ## Other
 - Disparity with float32 must multiply 256 to be uint16 format
 - GDNet_dc6, GDNet_dc6f are not finished
-
-<object data="http://yoursite.com/the.pdf" type="application/pdf" width="700px" height="700px">
-    <embed src="http://yoursite.com/the.pdf">
-        <p>This browser does not support PDFs. Please download the PDF to view it: <a href="http://yoursite.com/the.pdf">Download PDF</a>.</p>
-    </embed>
-</object>
