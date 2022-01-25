@@ -73,4 +73,3 @@ The size of input images are required to be multiple for specific model.
 
 ## Other
 - Disparity with float32 must multiply 256 to be uint16 format
-- GDNet_dc6, GDNet_dc6f are not finished
