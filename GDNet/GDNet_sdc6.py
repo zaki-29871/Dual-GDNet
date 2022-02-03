@@ -328,8 +328,7 @@ class CostAggregation(nn.Module):
         x = self.gd5(x, g['gd5'])
 
         # x: 32, D/4, H/4, W/4
-        # lg1: 75, H, W
-        # lg2: 75, H, W
+        # lg1, lg2, lg3, lg4: 75, H, W
         cost4 = self.cost4(x, g['lg1'], g['lg2'], g['lg3'], g['lg4'])
         if self.training:
             return cost0, cost1, cost2, cost3, cost4
@@ -390,8 +389,7 @@ class GDNet_sdc6(nn.Module):
         # 1920 = 32*6*10
         # gd11, gd12, gd13, gd14: 2880, H/16, W/16
         # 2880 = 48*6*10
-        # lg1: 75, H, W
-        # lg2: 75, H, W
+        # lg1, lg2, lg3, lg4: 75, H, W
         g = self.guidance(g)
 
         return self.cost_aggregation(x, g)

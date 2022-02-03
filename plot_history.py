@@ -22,12 +22,12 @@ def get_color(value):
 
 
 version = None
-trend_kernel = 10  # version (plot) + trend kernel = real model version, trend_kernel = [1, n]
-trend_regression_size = 30  # to see the loss is decent or not, trend_regression_size = [1, n]
+trend_kernel = 50  # version (plot) + trend kernel = real model version, trend_kernel = [1, n]
+trend_regression_size = 50  # to see the loss is decent or not, trend_regression_size = [1, n]
 trend_method = ['corr', 'regression'][1]
 epe = EPE_Loss()
 used_profile = profile.GDNet_sdc6f()
-start_version = 800  # start_version = [1, n]
+start_version = 1  # start_version = [1, n]
 
 version, loss_history = used_profile.load_history(version)
 print('Number of epochs:', len(loss_history['test']))

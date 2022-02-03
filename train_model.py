@@ -23,7 +23,7 @@ image = ['cleanpass', 'finalpass']  # for flyingthings3D
 exception_count = 0
 
 used_profile = profile.GDNet_sdc6f()
-dataset = dataset[2]
+dataset = dataset[0]
 if dataset == 'flyingthings3D':
     image = image[1]
 
@@ -32,7 +32,7 @@ if isinstance(used_profile, profile.GDNet_sdc6f):
     # height, width = 192, 576  # 576 - 192 = 384
     # max_disparity = 192
 
-    # v655
+    # v655 start
     height, width = 128, 384  # 384 - 128 = 256
     max_disparity = 128
 
@@ -94,8 +94,8 @@ while v < max_version + 1:
                 train_loader = DataLoader(random_subset(train_dataset, 72), batch_size=batch, shuffle=False)
                 test_loader = DataLoader(random_subset(test_dataset, 8), batch_size=batch, shuffle=False)
             else:
-                train_loader = DataLoader(random_subset(train_dataset, 192), batch_size=batch, shuffle=False)
-                test_loader = DataLoader(random_subset(test_dataset, 48), batch_size=batch, shuffle=False)
+                train_loader = DataLoader(random_subset(train_dataset, 576), batch_size=batch, shuffle=False)
+                test_loader = DataLoader(random_subset(test_dataset, 144), batch_size=batch, shuffle=False)
 
         elif dataset == 'KITTI_2015':
             train_loader = DataLoader(random_subset(train_dataset, 160), batch_size=batch, shuffle=False)
@@ -221,4 +221,4 @@ while v < max_version + 1:
         v -= 1
         # if exception_count >= 50:
         #     exit(-1)
-        # exit(-1)
+        exit(-1)

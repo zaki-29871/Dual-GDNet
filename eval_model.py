@@ -6,9 +6,9 @@ from colorama import Style
 import profile
 
 # GTX 1660 TiTi
-max_disparity = 192  # KITTI 2015
+# max_disparity = 192  # KITTI 2015
 # max_disparity = 144  # flyingthings3D
-# max_disparity = 160  # flyingthings3D
+max_disparity = 160  # flyingthings3D
 # version = 592
 version = None
 seed = 0
@@ -16,12 +16,12 @@ lr_check = False
 max_disparity_diff = 1.5
 merge_cost = True
 candidate = False
-plot_and_save_image = True
+plot_and_save_image = False
 
 # produce disparity methods
 use_split = False
-use_crop_size = False
-use_resize = True  # only KITTI_2015_benchmark uses this, and it also doesn't have crop_size setting
+use_crop_size = True
+use_resize = False  # only KITTI_2015_benchmark uses this, and it also doesn't have crop_size setting
 
 if use_split + use_resize + use_crop_size != 1:
     raise Exception('Using only one image regeneration method')
@@ -30,7 +30,7 @@ dataset = ['flyingthings3D', 'KITTI_2015', 'KITTI_2015_benchmark', 'AerialImager
 image = ['cleanpass', 'finalpass']  # for flyingthings3D
 
 used_profile = profile.GDNet_sdc6f()
-dataset = dataset[1]
+dataset = dataset[0]
 if dataset == 'flyingthings3D':
     image = image[1]
 
@@ -89,15 +89,14 @@ elif use_crop_size:
         height, width = AerialImagery.image_size
 
     if dataset == 'flyingthings3D':
-        test_dataset = FlyingThings3D(max_disparity, crop_size=(height, width), type='test', crop_seed=0,
-                                      image=image)
-        test_dataset = random_subset(test_dataset, 100, seed=seed)
+        use_dataset = FlyingThings3D(max_disparity, crop_size=(height, width), type='test', crop_seed=0,
+                                     image=image)
+        test_dataset = random_subset(use_dataset, 100, seed=seed)
 
     elif dataset == 'KITTI_2015':
-        train_dataset, test_dataset = random_split(
-            KITTI_2015(use_crop_size=True, crop_size=(height, width), type='train', crop_seed=0, untexture_rate=0),
-            train_ratio=0.8,
-            seed=seed)
+        use_dataset = KITTI_2015(use_crop_size=True, crop_size=(height, width), type='train', crop_seed=0,
+                                 untexture_rate=0)
+        train_dataset, test_dataset = random_split(use_dataset, train_ratio=0.8, seed=seed)
 
     elif dataset == 'AerialImagery':
         height, width = AerialImagery.image_size

@@ -278,20 +278,26 @@ class KITTI_2015_Augmentation(Dataset):
     def __init__(self, type='train', crop_size=None, crop_seed=None, seed=0):
         assert os.path.exists(self.ROOT), 'Dataset path is not exist'
         self.type = type
-        self.files = os.listdir(os.path.join(self.ROOT, 'image_2'))
         np.random.seed(seed)
-        indexes = np.arange(len(self.files))
-        np.random.shuffle(indexes)
-        self.train_indexes = indexes[:3840]
-        self.test_indexes = indexes[3840:]
+
+        if type == 'train':
+            self.files = os.listdir(os.path.join(self.ROOT, 'training', 'image_2'))
+            self.train_indexes = np.arange(3840)
+            np.random.shuffle(self.train_indexes)
+
+        elif type == 'test':
+            self.files = os.listdir(os.path.join(self.ROOT, 'testing', 'image_2'))
+            self.test_indexes = np.arange(960)
+            np.random.shuffle(self.test_indexes)
+
         self.crop_size = crop_size
         self.crop_seed = crop_seed
 
     def __getitem__(self, index):
         if self.type == 'train':
-            X1 = cv2.imread(os.path.join(self.ROOT, f'image_2/{self.files[self.train_indexes[index]]}'))
-            X2 = cv2.imread(os.path.join(self.ROOT, f'image_3/{self.files[self.train_indexes[index]]}'))
-            Y = cv2.imread(os.path.join(self.ROOT, f'disp_occ_0/{self.files[self.train_indexes[index]]}'))
+            X1 = cv2.imread(os.path.join(self.ROOT, f'training/image_2/{self.files[self.train_indexes[index]]}'))
+            X2 = cv2.imread(os.path.join(self.ROOT, f'training/image_3/{self.files[self.train_indexes[index]]}'))
+            Y = cv2.imread(os.path.join(self.ROOT, f'training/disp_occ_0/{self.files[self.train_indexes[index]]}'))
 
             X1 = utils.rgb2bgr(X1)
             X2 = utils.rgb2bgr(X2)
@@ -310,9 +316,9 @@ class KITTI_2015_Augmentation(Dataset):
             return X.cuda(), Y.cuda()
 
         elif self.type == 'test':
-            X1 = cv2.imread(os.path.join(self.ROOT, f'image_2/{self.files[self.test_indexes[index]]}'))
-            X2 = cv2.imread(os.path.join(self.ROOT, f'image_3/{self.files[self.test_indexes[index]]}'))
-            Y = cv2.imread(os.path.join(self.ROOT, f'disp_occ_0/{self.files[self.test_indexes[index]]}'))
+            X1 = cv2.imread(os.path.join(self.ROOT, f'testing/image_2/{self.files[self.test_indexes[index]]}'))
+            X2 = cv2.imread(os.path.join(self.ROOT, f'testing/image_3/{self.files[self.test_indexes[index]]}'))
+            Y = cv2.imread(os.path.join(self.ROOT, f'testing/disp_occ_0/{self.files[self.test_indexes[index]]}'))
 
             X1 = utils.rgb2bgr(X1)
             X2 = utils.rgb2bgr(X2)

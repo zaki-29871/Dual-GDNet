@@ -4,7 +4,7 @@ import os
 import struct
 import imagesize
 
-original_data_folder = r'F:\Dataset\KITTI 2015 Data Augmentation'
+original_data_folder = r'F:\Dataset\KITTI 2015 Data Augmentation\training'
 
 class UnknownImageFormat(Exception):
     pass
