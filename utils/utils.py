@@ -634,7 +634,7 @@ def threshold_color(loss):
 
 def y_mask(Y, max_disparity, dataset):
     mask = (Y < max_disparity - 1)
-    if dataset in ['KITTI_2015', 'KITTI_2015', 'KITTI_2015_Augmentation']:
+    if dataset in ['KITTI_2015', 'KITTI_2015', 'KITTI_2015_Augmentation', 'KITTI_2012_Augmentation']:
         mask = mask & (Y != 0)
     return mask
 
@@ -661,126 +661,6 @@ def flip_X(X, Y):
     Y = flip_d.cuda()
 
     return X, Y
-
-
-def split_prduce_disparity(used_profile, X, Y, dataset, max_disparity, split_height, split_width, merge_cost=False,
-                           lr_check=False,
-                           candidate=False,
-                           regression=True, penalize=False,
-                           slope=1, max_disparity_diff=1.5):
-    """
-    :param used_profile: neural network model's profile
-    :param X: two concated images
-    :return: eval_dict (full)
-    """
-
-    origin_height = X.shape[2]
-    number_of_height_block = math.ceil(origin_height / split_height)
-
-    origin_width = X.shape[3]
-    number_of_width_block = math.ceil(origin_width / split_width)
-
-    assert split_height <= origin_height
-    assert origin_width <= origin_width
-    eval_dict_full = {
-        'error_sum': 0,
-        'total_eval': 0,
-        'epe_loss': 0,
-        'confidence_error': torch.zeros((1, origin_height, origin_width), dtype=torch.float),
-        'CE_avg': 0,
-        'disp': torch.zeros((1, 1, origin_height, origin_width), dtype=torch.float)
-    }
-    epe_loss_and_partial_eval_list = []
-    confidence_error_and_partial_pixels_list = []
-    total_confidence_error_pixels = 0
-
-    for h in range(number_of_height_block):
-        for w in range(number_of_width_block):
-            X_block = None
-            Y_block = None
-
-            if h < number_of_height_block - 1 and w < number_of_width_block - 1:
-                h_base = h * split_height
-                w_base = w * split_width
-                X_block = X[:, :, h_base:h_base + split_height, w_base:w_base + split_width]
-                Y_block = Y[:, :, h_base:h_base + split_height, w_base:w_base + split_width]
-
-                eval_dict = used_profile.eval(X_block, Y_block, dataset, merge_cost=merge_cost, lr_check=lr_check,
-                                              candidate=candidate,
-                                              regression=regression,
-                                              penalize=penalize, slope=slope, max_disparity_diff=max_disparity_diff)
-
-                eval_dict_full['disp'][:, :, h_base:h_base + split_height, w_base:w_base + split_width] = \
-                    eval_dict['disp'][0, ...]
-                eval_dict_full['confidence_error'][:, h_base:h_base + split_height, w_base:w_base + split_width] = \
-                    eval_dict['confidence_error'][0, ...]
-
-            elif h == number_of_height_block - 1 and w < number_of_width_block - 1:
-                # Block's height touches edges
-                h_base = origin_height - split_height
-                w_base = w * split_width
-                X_block = X[:, :, h_base:, w_base:w_base + split_width]
-                Y_block = Y[:, :, h_base:, w_base:w_base + split_width]
-
-                eval_dict = used_profile.eval(X_block, Y_block, dataset, merge_cost=merge_cost, lr_check=lr_check,
-                                              candidate=candidate,
-                                              regression=regression,
-                                              penalize=penalize, slope=slope, max_disparity_diff=max_disparity_diff)
-
-                eval_dict_full['disp'][:, :, h_base:, w_base:w_base + split_width] = eval_dict['disp'][0, ...]
-                eval_dict_full['confidence_error'][:, h_base:, w_base:w_base + split_width] = \
-                    eval_dict['confidence_error'][0, ...]
-
-            elif h < number_of_height_block - 1 and w == number_of_width_block - 1:
-                # Block's width touches edges
-                h_base = h * split_height
-                w_base = origin_width - split_width
-                X_block = X[:, :, h_base:h_base + split_height, w_base:]
-                Y_block = Y[:, :, h_base:h_base + split_height, w_base:]
-
-                eval_dict = used_profile.eval(X_block, Y_block, dataset, merge_cost=merge_cost, lr_check=lr_check,
-                                              candidate=candidate,
-                                              regression=regression,
-                                              penalize=penalize, slope=slope, max_disparity_diff=max_disparity_diff)
-
-                eval_dict_full['disp'][:, :, h_base:h_base + split_height, w_base:] = eval_dict['disp'][0, ...]
-                eval_dict_full['confidence_error'][:, h_base:h_base + split_height, w_base:] = \
-                    eval_dict['confidence_error'][0, ...]
-
-            else:
-                # Block's height and width touch edges
-                h_base = origin_height - split_height
-                w_base = origin_width - split_width
-                X_block = X[:, :, h_base:, w_base:]
-                Y_block = Y[:, :, h_base:, w_base:]
-                eval_dict = used_profile.eval(X_block, Y_block, dataset, merge_cost=merge_cost, lr_check=lr_check,
-                                              candidate=candidate,
-                                              regression=regression,
-                                              penalize=penalize, slope=slope, max_disparity_diff=max_disparity_diff)
-
-                eval_dict_full['disp'][:, :, h_base:, w_base:] = eval_dict['disp'][0, ...]
-                eval_dict_full['confidence_error'][:, h_base:, w_base:] = eval_dict['confidence_error'][0, ...]
-
-            eval_dict_full['error_sum'] += eval_dict['error_sum']
-            eval_dict_full['total_eval'] += eval_dict['total_eval']
-            epe_loss_and_partial_eval_list.append((eval_dict['epe_loss'], eval_dict['total_eval']))
-            confidence_error_pixels = np.int64(
-                eval_dict_full['confidence_error'][:, max_disparity:].reshape(-1).size(0))
-            total_confidence_error_pixels += confidence_error_pixels
-            confidence_error_and_partial_pixels_list.append(
-                (eval_dict_full['confidence_error'], confidence_error_pixels))
-
-    for epe_loss, total_eval in epe_loss_and_partial_eval_list:
-        block_weight = total_eval / eval_dict_full['total_eval']
-        eval_dict_full['epe_loss'] += block_weight * epe_loss
-
-    for confidence_error, confidence_error_pixels in confidence_error_and_partial_pixels_list:
-        block_weight = confidence_error_pixels / total_confidence_error_pixels
-        eval_dict_full['CE_avg'] += block_weight * confidence_error[:, max_disparity:].mean()
-
-    eval_dict_full['CE_avg'] = float(eval_dict_full['CE_avg'])
-    eval_dict_full['disp'] = eval_dict_full['disp'][0]
-    return eval_dict_full
 
 
 def trend_regression(loss_trend, method='corr'):

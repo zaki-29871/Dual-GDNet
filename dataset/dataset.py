@@ -13,7 +13,8 @@ class FlyingThings3D(Dataset):
 
     # height, width = 540, 960
 
-    def __init__(self, max_disparity, crop_size=None, type='train', image='cleanpass', crop_seed=None, down_sampling=1,
+    def __init__(self, max_disparity, use_crop_size=False, crop_size=(None, None), type='train', image='cleanpass',
+                 crop_seed=None, down_sampling=1,
                  disparity=['left'], small=False):
         if small:
             self.ROOT += '_s'
@@ -23,6 +24,10 @@ class FlyingThings3D(Dataset):
         self.down_sampling = down_sampling
         self.disparity = disparity
         self.data_max_disparity = []
+        self.use_crop_size = use_crop_size
+        self.crop_size = crop_size
+        self.image = image
+        self.crop_seed = crop_seed
 
         if type == 'train':
             for d in self.disparity:
@@ -55,34 +60,36 @@ class FlyingThings3D(Dataset):
         if image not in ['cleanpass', 'finalpass']:
             raise Exception(f'Unknown image: "{image}"')
 
-        self.image = image
-        self.crop_size = crop_size
-        self.crop_seed = crop_seed
         self._make_mask_index()
 
     def __getitem__(self, index):
-        index = self.mask_index[index]
-        X = utils.load(os.path.join(self.root, f'{self.image}/{index:05d}.np'))
-        X = torch.from_numpy(X)
+        if self.use_crop_size:
+            index = self.mask_index[index]
+            X = utils.load(os.path.join(self.root, f'{self.image}/{index:05d}.np'))
+            X = torch.from_numpy(X)
 
-        if self.crop_size is not None:
             cropper = utils.RandomCropper(X.shape[1:3], self.crop_size, seed=self.crop_seed)
             X = cropper.crop(X)
-        X = X.float() / 255
+            X = X.float() / 255
 
-        Y_list = []
-        for d in self.disparity:
-            Y = utils.load(os.path.join(self.root, f'{d}_disparity/{index:05d}.np'))
-            Y = torch.from_numpy(Y)
-            if self.crop_size is not None:
+            Y_list = []
+            for d in self.disparity:
+                Y = utils.load(os.path.join(self.root, f'{d}_disparity/{index:05d}.np'))
+                Y = torch.from_numpy(Y)
                 Y = cropper.crop(Y)
-            Y_list.append(Y.unsqueeze(0))
-        Y = torch.cat(Y_list, dim=0)
+                Y_list.append(Y.unsqueeze(0))
+            Y = torch.cat(Y_list, dim=0)
 
-        if self.down_sampling != 1:
-            X = X[:, ::self.down_sampling, ::self.down_sampling]
-            Y = Y[:, ::self.down_sampling, ::self.down_sampling]
-            Y /= self.down_sampling
+            if self.down_sampling != 1:
+                X = X[:, ::self.down_sampling, ::self.down_sampling]
+                Y = Y[:, ::self.down_sampling, ::self.down_sampling]
+                Y /= self.down_sampling
+
+        elif self.use_resize:
+            pass
+
+        elif self.use_padding_crop_size:
+            pass
 
         return X.cuda(), Y.cuda()
 
@@ -149,7 +156,7 @@ class KITTI_2015(Dataset):
                     cropper = utils.RandomCropper(X1.shape[0:2], self.crop_size, seed=self.crop_seed)
                     X, Y = cropper.crop(X), cropper.crop(Y)
                 X, Y = X.float() / 255, Y.float()
-                return X.cuda(), Y.cuda()
+
             else:
                 if self.use_resize:
                     X1 = cv2.imread(os.path.join(self.root, 'image_2/{:06d}_10.png'.format(index)))
@@ -190,8 +197,6 @@ class KITTI_2015(Dataset):
                     cropper = utils.RandomCropper(X1.shape[0:2], self.crop_size, seed=self.crop_seed)
                     X, Y = cropper.crop(X), cropper.crop(Y)
 
-                return X.cuda(), Y.cuda()
-
         elif self.type == 'test':
             if self.use_resize:
                 X1 = cv2.imread(os.path.join(self.root, 'image_2/{:06d}_10.png'.format(index)))
@@ -224,7 +229,7 @@ class KITTI_2015(Dataset):
 
                 Y = torch.ones((1, X.size(1), X.size(2)), dtype=torch.float)
 
-            return X.cuda(), Y.cuda()
+        return X.cuda(), Y.cuda()
 
     def __len__(self):
         if self.type == 'train':
@@ -239,109 +244,304 @@ class KITTI_2015_benchmark(Dataset):
     # KITTI 2015 original height and width (375, 1242, 3), dtype uint8
     # height and width: (370, 1224) is the smallest size
 
-    def __init__(self, use_resize=False, resize=(None, None)):
+    def __init__(self, use_padding_crop_size=False, padding_crop_size=(None, None)):
         assert os.path.exists(self.ROOT), 'Dataset path is not exist'
         self.root = os.path.join(self.ROOT, 'testing')
-        self.use_resize = use_resize
-        self.resize_height, self.resize_width = resize
+        self.use_padding_crop_size = use_padding_crop_size
+        self.padding_crop_size = padding_crop_size
 
     def __getitem__(self, index):
         X1 = cv2.imread(os.path.join(self.root, 'image_2/{:06d}_10.png'.format(index)))
         X2 = cv2.imread(os.path.join(self.root, 'image_3/{:06d}_10.png'.format(index)))
         self.original_height, self.original_width = X1.shape[:2]
-
-        if self.use_resize:
-            X1 = cv2.resize(X1, (self.resize_width, self.resize_height))
-            X2 = cv2.resize(X2, (self.resize_width, self.resize_height))
+        assert self.original_height < self.padding_crop_size[0]
+        assert self.original_width < self.padding_crop_size[1]
 
         X1 = utils.rgb2bgr(X1)
         X2 = utils.rgb2bgr(X2)
 
-        X = np.concatenate([X1, X2], axis=2)  # batch, height, width, channel
+        X1_pad = np.zeros((*self.padding_crop_size, 3), dtype=np.uint8)
+        X2_pad = np.zeros((*self.padding_crop_size, 3), dtype=np.uint8)
+
+        X1_pad[:X1.shape[0], :X1.shape[1], :] = X1[...]
+        X2_pad[:X1.shape[0], :X1.shape[1], :] = X2[...]
+
+        X1 = X1_pad
+        X2 = X2_pad
+
+        X = np.concatenate([X1, X2], axis=2)  # height, width, channel
         X = X.swapaxes(0, 2).swapaxes(1, 2)  # channel*2, height, width
         X = torch.from_numpy(X) / 255.0
 
         Y = torch.ones((1, self.original_height, self.original_width), dtype=torch.float)
+
         return X.cuda(), Y.cuda()
 
     def __len__(self):
         return 200
 
 
-class KITTI_2015_Augmentation(Dataset):
+class KITTI_Augmentation(Dataset):
     ROOT = r'F:\Dataset\KITTI 2015 Data Augmentation'
 
     # KITTI 2015 original height and width (375, 1242, 3), dtype uint8
     # width range = [1224, 1242]
     # height range = [370, 376]
 
-    def __init__(self, type='train', crop_size=None, crop_seed=None, seed=0):
-        assert os.path.exists(self.ROOT), 'Dataset path is not exist'
+    def __init__(self, type='train', shuffle_seed=0, use_crop_size=False, crop_size=None, crop_seed=None,
+                 use_resize=False, resize=(None, None), use_padding_crop_size=False, padding_crop_size=(None, None)):
+        assert os.path.exists(self.get_root_directory()), 'Dataset path is not exist'
+        assert use_crop_size + use_resize + use_padding_crop_size == 1, 'Using one of methods to produce disparity'
         self.type = type
-        np.random.seed(seed)
 
         if type == 'train':
-            self.files = os.listdir(os.path.join(self.ROOT, 'training', 'image_2'))
+            self.files = os.listdir(os.path.join(self.get_root_directory(), 'training', self.get_left_image_folder()))
             self.train_indexes = np.arange(3840)
+            np.random.seed(shuffle_seed)
             np.random.shuffle(self.train_indexes)
 
         elif type == 'test':
-            self.files = os.listdir(os.path.join(self.ROOT, 'testing', 'image_2'))
+            self.files = os.listdir(os.path.join(self.get_root_directory(), 'testing', self.get_left_image_folder()))
             self.test_indexes = np.arange(960)
+            np.random.seed(shuffle_seed)
             np.random.shuffle(self.test_indexes)
 
+        self.use_crop_size = use_crop_size
+        self.use_resize = use_resize
+        self.use_padding_crop_size = use_padding_crop_size
+        self.resize_height, self.resize_width = resize
         self.crop_size = crop_size
+        self.padding_crop_size = padding_crop_size
         self.crop_seed = crop_seed
 
     def __getitem__(self, index):
         if self.type == 'train':
-            X1 = cv2.imread(os.path.join(self.ROOT, f'training/image_2/{self.files[self.train_indexes[index]]}'))
-            X2 = cv2.imread(os.path.join(self.ROOT, f'training/image_3/{self.files[self.train_indexes[index]]}'))
-            Y = cv2.imread(os.path.join(self.ROOT, f'training/disp_occ_0/{self.files[self.train_indexes[index]]}'))
+            if self.use_resize:
+                X1 = cv2.imread(os.path.join(self.get_root_directory(),
+                                             f'training/{self.get_left_image_folder()}/{self.files[self.train_indexes[index]]}'))
+                X2 = cv2.imread(os.path.join(self.get_root_directory(),
+                                             f'training/{self.get_right_image_folder()}/{self.files[self.train_indexes[index]]}'))
+                Y = cv2.imread(os.path.join(self.get_root_directory(),
+                                            f'training/{self.get_disp_image_folder()}/{self.files[self.train_indexes[index]]}'))
+                self.original_height, self.original_width = X1.shape[:2]
 
-            X1 = utils.rgb2bgr(X1)
-            X2 = utils.rgb2bgr(X2)
+                X1 = cv2.resize(X1, (self.resize_width, self.resize_height))
+                X2 = cv2.resize(X2, (self.resize_width, self.resize_height))
 
-            X = np.concatenate([X1, X2], axis=2)
-            X = X.swapaxes(0, 2).swapaxes(1, 2)
+                X1 = utils.rgb2bgr(X1)
+                X2 = utils.rgb2bgr(X2)
 
-            Y = Y[:, :, 0]
-            X, Y = torch.from_numpy(X).float(), torch.from_numpy(Y)
-            Y = Y.unsqueeze(0)
-            if self.crop_size is not None:
+                X = np.concatenate([X1, X2], axis=2)  # height, width, channel
+                X = X.swapaxes(0, 2).swapaxes(1, 2)  # channel*2, height, width
+
+                Y = Y[:, :, 0]
+                X, Y = torch.from_numpy(X).float() / 255, torch.from_numpy(Y)
+                Y = Y.unsqueeze(0)
+
+            elif self.use_crop_size:
+                X1 = cv2.imread(os.path.join(self.get_root_directory(),
+                                             f'training/{self.get_left_image_folder()}/{self.files[self.train_indexes[index]]}'))
+                X2 = cv2.imread(os.path.join(self.get_root_directory(),
+                                             f'training/{self.get_right_image_folder()}/{self.files[self.train_indexes[index]]}'))
+                Y = cv2.imread(os.path.join(self.get_root_directory(),
+                                            f'training/{self.get_disp_image_folder()}/{self.files[self.train_indexes[index]]}'))
+
+                X1 = utils.rgb2bgr(X1)
+                X2 = utils.rgb2bgr(X2)
+
+                X = np.concatenate([X1, X2], axis=2)  # height, width, channel
+                X = X.swapaxes(0, 2).swapaxes(1, 2)  # channel*2, height, width
+
+                Y = Y[:, :, 0]
+                X, Y = torch.from_numpy(X).float(), torch.from_numpy(Y)
+                Y = Y.unsqueeze(0)
+
                 cropper = utils.RandomCropper(X1.shape[0:2], self.crop_size, seed=self.crop_seed)
                 X, Y = cropper.crop(X), cropper.crop(Y)
-            X, Y = X.float() / 255, Y.float()
+                X, Y = X.float() / 255, Y.float()
 
-            return X.cuda(), Y.cuda()
+            elif self.use_padding_crop_size:
+                X1 = cv2.imread(os.path.join(self.get_root_directory(),
+                                             f'training/{self.get_left_image_folder()}/{self.files[self.train_indexes[index]]}'))
+                X2 = cv2.imread(os.path.join(self.get_root_directory(),
+                                             f'training/{self.get_right_image_folder()}/{self.files[self.train_indexes[index]]}'))
+                Y = cv2.imread(os.path.join(self.get_root_directory(),
+                                            f'training/{self.get_disp_image_folder()}/{self.files[self.train_indexes[index]]}'))
+                self.original_height, self.original_width = X1.shape[:2]
+                assert self.original_height < self.padding_crop_size[0]
+                assert self.original_width < self.padding_crop_size[1]
+
+                X1 = utils.rgb2bgr(X1)
+                X2 = utils.rgb2bgr(X2)
+
+                X1_pad = np.zeros((*self.padding_crop_size, 3), dtype=np.uint8)
+                X2_pad = np.zeros((*self.padding_crop_size, 3), dtype=np.uint8)
+
+                X1_pad[:X1.shape[0], :X1.shape[1], :] = X1[...]
+                X2_pad[:X1.shape[0], :X1.shape[1], :] = X2[...]
+
+                X1 = X1_pad
+                X2 = X2_pad
+
+                X = np.concatenate([X1, X2], axis=2)  # height, width, channel
+                X = X.swapaxes(0, 2).swapaxes(1, 2)  # channel*2, height, width
+
+                Y = Y[:, :, 0]
+                X, Y = torch.from_numpy(X).float(), torch.from_numpy(Y)
+                Y = Y.unsqueeze(0)
+                X, Y = X.float() / 255, Y.float()
 
         elif self.type == 'test':
-            X1 = cv2.imread(os.path.join(self.ROOT, f'testing/image_2/{self.files[self.test_indexes[index]]}'))
-            X2 = cv2.imread(os.path.join(self.ROOT, f'testing/image_3/{self.files[self.test_indexes[index]]}'))
-            Y = cv2.imread(os.path.join(self.ROOT, f'testing/disp_occ_0/{self.files[self.test_indexes[index]]}'))
+            if self.use_resize:
+                X1 = cv2.imread(os.path.join(self.get_root_directory(),
+                                             f'testing/{self.get_left_image_folder()}/{self.files[self.test_indexes[index]]}'))
+                X2 = cv2.imread(os.path.join(self.get_root_directory(),
+                                             f'testing/{self.get_right_image_folder()}/{self.files[self.test_indexes[index]]}'))
+                Y = cv2.imread(os.path.join(self.get_root_directory(),
+                                            f'testing/{self.get_disp_image_folder()}/{self.files[self.test_indexes[index]]}'))
+                self.original_height, self.original_width = X1.shape[:2]
 
-            X1 = utils.rgb2bgr(X1)
-            X2 = utils.rgb2bgr(X2)
+                X1 = cv2.resize(X1, (self.resize_width, self.resize_height))
+                X2 = cv2.resize(X2, (self.resize_width, self.resize_height))
 
-            X = np.concatenate([X1, X2], axis=2)
-            X = X.swapaxes(0, 2).swapaxes(1, 2)
+                X1 = utils.rgb2bgr(X1)
+                X2 = utils.rgb2bgr(X2)
 
-            Y = Y[:, :, 0]
-            X, Y = torch.from_numpy(X).float(), torch.from_numpy(Y)
-            Y = Y.unsqueeze(0)
+                X = np.concatenate([X1, X2], axis=2)  # height, width, channel
+                X = X.swapaxes(0, 2).swapaxes(1, 2)  # channel*2, height, width
 
-            if self.crop_size is not None:
+                Y = Y[:, :, 0]
+                X, Y = torch.from_numpy(X).float() / 255, torch.from_numpy(Y)
+                Y = Y.unsqueeze(0)
+
+            elif self.use_crop_size:
+                X1 = cv2.imread(os.path.join(self.get_root_directory(),
+                                             f'testing/{self.get_left_image_folder()}/{self.files[self.test_indexes[index]]}'))
+                X2 = cv2.imread(os.path.join(self.get_root_directory(),
+                                             f'testing/{self.get_right_image_folder()}/{self.files[self.test_indexes[index]]}'))
+                Y = cv2.imread(os.path.join(self.get_root_directory(),
+                                            f'testing/{self.get_disp_image_folder()}/{self.files[self.test_indexes[index]]}'))
+
+                X1 = utils.rgb2bgr(X1)
+                X2 = utils.rgb2bgr(X2)
+
+                X = np.concatenate([X1, X2], axis=2)  # height, width, channel
+                X = X.swapaxes(0, 2).swapaxes(1, 2)  # channel*2, height, width
+
+                Y = Y[:, :, 0]
+                X, Y = torch.from_numpy(X).float(), torch.from_numpy(Y)
+                Y = Y.unsqueeze(0)
+
                 cropper = utils.RandomCropper(X1.shape[0:2], self.crop_size, seed=self.crop_seed)
                 X, Y = cropper.crop(X), cropper.crop(Y)
-            X, Y = X.float() / 255, Y.float()
+                X, Y = X.float() / 255, Y.float()
 
-            return X.cuda(), Y.cuda()
+            elif self.use_padding_crop_size:
+                X1 = cv2.imread(os.path.join(self.get_root_directory(),
+                                             f'testing/{self.get_left_image_folder()}/{self.files[self.test_indexes[index]]}'))
+                X2 = cv2.imread(os.path.join(self.get_root_directory(),
+                                             f'testing/{self.get_right_image_folder()}/{self.files[self.test_indexes[index]]}'))
+                Y = cv2.imread(os.path.join(self.get_root_directory(),
+                                            f'testing/{self.get_disp_image_folder()}/{self.files[self.test_indexes[index]]}'))
+                self.original_height, self.original_width = X1.shape[:2]
+                assert self.original_height < self.padding_crop_size[0]
+                assert self.original_width < self.padding_crop_size[1]
+
+                X1 = utils.rgb2bgr(X1)
+                X2 = utils.rgb2bgr(X2)
+
+                X1_pad = np.zeros((*self.padding_crop_size, 3), dtype=np.uint8)
+                X2_pad = np.zeros((*self.padding_crop_size, 3), dtype=np.uint8)
+
+                X1_pad[:X1.shape[0], :X1.shape[1], :] = X1[...]
+                X2_pad[:X1.shape[0], :X1.shape[1], :] = X2[...]
+
+                X1 = X1_pad
+                X2 = X2_pad
+
+                X = np.concatenate([X1, X2], axis=2)  # height, width, channel
+                X = X.swapaxes(0, 2).swapaxes(1, 2)  # channel*2, height, width
+
+                Y = Y[:, :, 0]
+                X, Y = torch.from_numpy(X).float(), torch.from_numpy(Y)
+                Y = Y.unsqueeze(0)
+                X, Y = X.float() / 255, Y.float()
+
+        return X.cuda(), Y.cuda()
+
+    def get_root_directory(self):
+        return ''
+
+    def get_left_image_folder(self):
+        return ''
+
+    def get_right_image_folder(self):
+        return ''
+
+    def get_disp_image_folder(self):
+        return ''
+
+    def __len__(self):
+        pass
+
+
+class KITTI_2015_Augmentation(KITTI_Augmentation):
+
+    def __init__(self, type='train', shuffle_seed=0, use_crop_size=False, crop_size=None, crop_seed=None,
+                 use_resize=False, resize=(None, None), use_padding_crop_size=False, padding_crop_size=(None, None)):
+
+        super().__init__(type=type, use_crop_size=use_crop_size, crop_size=crop_size, crop_seed=crop_seed,
+                         shuffle_seed=shuffle_seed, use_resize=use_resize, resize=resize,
+                         use_padding_crop_size=use_padding_crop_size,
+                         padding_crop_size=padding_crop_size)
+
+    def get_root_directory(self):
+        return f'F:\Dataset\KITTI 2015 Data Augmentation'
+
+    def get_left_image_folder(self):
+        return 'image_2'
+
+    def get_right_image_folder(self):
+        return 'image_3'
+
+    def get_disp_image_folder(self):
+        return 'disp_occ_0'
 
     def __len__(self):
         if self.type == 'train':
             return 3840
         if self.type == 'test':
             return 960
+
+
+class KITTI_2012_Augmentation(KITTI_Augmentation):
+    ROOT = r'F:\Dataset\KITTI 2015 Data Augmentation'
+
+    def __init__(self, type='train', shuffle_seed=0, use_crop_size=False, crop_size=None, crop_seed=None,
+                 use_resize=False, resize=(None, None), use_padding_crop_size=False, padding_crop_size=(None, None)):
+
+        super().__init__(type=type, use_crop_size=use_crop_size, crop_size=crop_size, crop_seed=crop_seed,
+                         shuffle_seed=shuffle_seed, use_resize=use_resize, resize=resize,
+                         use_padding_crop_size=use_padding_crop_size,
+                         padding_crop_size=padding_crop_size)
+
+    def get_root_directory(self):
+        return r'F:\Dataset\KITTI 2012 Data Augmentation'
+
+    def get_left_image_folder(self):
+        return 'colored_0'
+
+    def get_right_image_folder(self):
+        return 'colored_1'
+
+    def get_disp_image_folder(self):
+        return 'disp_occ'
+
+    def __len__(self):
+        if self.type == 'train':
+            return 3720
+        if self.type == 'test':
+            return 936
 
 
 class AerialImagery(Dataset):

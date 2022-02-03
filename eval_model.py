@@ -6,9 +6,9 @@ from colorama import Style
 import profile
 
 # GTX 1660 TiTi
-# max_disparity = 192  # KITTI 2015
+max_disparity = 192  # KITTI 2015
 # max_disparity = 144  # flyingthings3D
-max_disparity = 160  # flyingthings3D
+# max_disparity = 160  # flyingthings3D
 # version = 592
 version = None
 seed = 0
@@ -19,18 +19,19 @@ candidate = False
 plot_and_save_image = False
 
 # produce disparity methods
-use_split = False
-use_crop_size = True
+use_crop_size = False
 use_resize = False  # only KITTI_2015_benchmark uses this, and it also doesn't have crop_size setting
+use_padding_crop_size = True
 
-if use_split + use_resize + use_crop_size != 1:
+if use_resize + use_crop_size + use_padding_crop_size != 1:
     raise Exception('Using only one image regeneration method')
 
-dataset = ['flyingthings3D', 'KITTI_2015', 'KITTI_2015_benchmark', 'AerialImagery']
+dataset = ['flyingthings3D', 'KITTI_2015', 'KITTI_2015_Augmentation', 'KITTI_2012_Augmentation', 'KITTI_2015_benchmark',
+           'AerialImagery']
 image = ['cleanpass', 'finalpass']  # for flyingthings3D
 
 used_profile = profile.GDNet_sdc6f()
-dataset = dataset[0]
+dataset = dataset[2]
 if dataset == 'flyingthings3D':
     image = image[1]
 
@@ -42,45 +43,22 @@ print('Using dataset:', dataset)
 print('Max disparity:', max_disparity)
 print('Number of parameters: {:,}'.format(sum(p.numel() for p in model.parameters())))
 print('Plot and save result image:', plot_and_save_image)
-print('Using split produce disparity mode:', use_split)
 print('Using use resize mode:', use_resize)
 print('Using use crop size mode:', use_crop_size)
+print('Using use use padding crop size:', use_padding_crop_size)
 
 losses = []
 error = []
 confidence_error = []
 total_eval = []
 
-if use_split:
-    if dataset == 'flyingthings3D':
-        # split_height, split_width = 256, 960
-        split_height, split_width = 416, 960
-        test_dataset = FlyingThings3D(max_disparity, type='test', image=image)
-        test_dataset = random_subset(test_dataset, 100, seed=seed)
-
-    elif dataset == 'KITTI_2015':
-        # train_ratio=0.99 for size 2 images
-        # split_height, split_width = 352, 960
-        split_height, split_width = 192, 1216
-        train_dataset, test_dataset = random_split(
-            KITTI_2015(type='train', untexture_rate=0), train_ratio=0.8, seed=seed)
-
-    elif dataset == 'KITTI_2015_benchmark':
-        test_dataset = KITTI_2015(max_disparity, type='test')
-
-    elif dataset == 'AerialImagery':
-        test_dataset = AerialImagery()
-
-    else:
-        raise Exception('Cannot find dataset: ' + dataset)
-
-elif use_crop_size:
+if use_crop_size:
     if dataset == 'flyingthings3D':
         # height, width = 512, 960
         # height, width = 384, 960  # GDNet_mdc6f
         height, width = 384, 960  # GDNet_sdc6f
 
-    elif dataset == 'KITTI_2015':
+    elif dataset in ['KITTI_2015', 'KITTI_2015_benchmark', 'KITTI_2015_Augmentation', 'KITTI_2012_Augmentation']:
         # height, width = 352, 1216  # GDNet_mdc6f
         height, width = 320, 1216  # GDNet_sdc6f
         # height, width = 336, 1200  # GDNet_dc6f
@@ -94,9 +72,21 @@ elif use_crop_size:
         test_dataset = random_subset(use_dataset, 100, seed=seed)
 
     elif dataset == 'KITTI_2015':
-        use_dataset = KITTI_2015(use_crop_size=True, crop_size=(height, width), type='train', crop_seed=0,
+        use_dataset = KITTI_2015(type='train', use_crop_size=True, crop_size=(height, width), crop_seed=0,
                                  untexture_rate=0)
         train_dataset, test_dataset = random_split(use_dataset, train_ratio=0.8, seed=seed)
+
+    elif dataset == 'KITTI_2015_Augmentation':
+        use_dataset = KITTI_2015_Augmentation(type='test', use_crop_size=True, crop_size=(height, width), seed=0)
+        test_dataset = random_subset(use_dataset, 30, seed=seed)
+
+    elif dataset == 'KITTI_2012_Augmentation':
+        use_dataset = KITTI_2012_Augmentation(type='test', use_crop_size=True, crop_size=(height, width), seed=0)
+        test_dataset = random_subset(use_dataset, 30, seed=seed)
+
+    elif dataset == 'KITTI_2015_benchmark':
+        use_dataset = KITTI_2015_benchmark(use_resize=True, resize=(height, width))
+        test_dataset = use_dataset
 
     elif dataset == 'AerialImagery':
         height, width = AerialImagery.image_size
@@ -106,7 +96,7 @@ elif use_crop_size:
         raise Exception('Cannot find dataset: ' + dataset)
 
 elif use_resize:
-    if dataset in ['KITTI_2015', 'KITTI_2015_benchmark']:
+    if dataset in ['KITTI_2015', 'KITTI_2015_benchmark', 'KITTI_2015_Augmentation', 'KITTI_2012_Augmentation']:
         # height, width = 352, 1216  # GDNet_mdc6f
         height, width = 384, 1280  # GDNet_sdc6f
         # height, width = 336, 1200  # GDNet_dc6f
@@ -115,8 +105,35 @@ elif use_resize:
         use_dataset = KITTI_2015(type='train', untexture_rate=0, use_resize=True, resize=(height, width))
         train_dataset, test_dataset = random_split(use_dataset, train_ratio=0.8, seed=seed)
 
+    elif dataset == 'KITTI_2015_Augmentation':
+        use_dataset = KITTI_2015_Augmentation(type='test', use_resize=True, resize=(height, width), seed=0)
+        test_dataset = random_subset(use_dataset, 30, seed=seed)
+
+    elif dataset == 'KITTI_2012_Augmentation':
+        use_dataset = KITTI_2012_Augmentation(type='test', use_resize=True, resize=(height, width), seed=0)
+        test_dataset = random_subset(use_dataset, 30, seed=seed)
+
+    else:
+        raise Exception('Cannot find dataset: ' + dataset)
+
+elif use_padding_crop_size:
+    if dataset in ['KITTI_2015', 'KITTI_2015_benchmark', 'KITTI_2015_Augmentation', 'KITTI_2012_Augmentation']:
+        # height, width = 352, 1216  # GDNet_mdc6f
+        height, width = 384, 1280  # GDNet_sdc6f
+        # height, width = 336, 1200  # GDNet_dc6f
+
+    if dataset == 'KITTI_2015_Augmentation':
+        use_dataset = KITTI_2015_Augmentation(type='test', use_padding_crop_size=True,
+                                              padding_crop_size=(height, width), seed=0)
+        test_dataset = random_subset(use_dataset, 30, seed=seed)
+
+    elif dataset == 'KITTI_2012_Augmentation':
+        use_dataset = KITTI_2012_Augmentation(type='test', use_padding_crop_size=True,
+                                              padding_crop_size=(height, width), seed=0)
+        test_dataset = random_subset(use_dataset, 30, seed=seed)
+
     elif dataset == 'KITTI_2015_benchmark':
-        use_dataset = KITTI_2015_benchmark(use_resize=True, resize=(height, width))
+        use_dataset = KITTI_2015_benchmark(use_padding_crop_size=True, padding_crop_size=(height, width))
         test_dataset = use_dataset
 
     else:
@@ -130,20 +147,8 @@ for batch_index, (X, Y) in enumerate(test_loader):
     with torch.no_grad():
         utils.tic()
 
-        if isinstance(used_profile, profile.GDNet_mdc6):
-            if use_split:
-                eval_dict = utils.split_prduce_disparity(used_profile, X, Y, dataset, max_disparity, split_height,
-                                                         split_width,
-                                                         merge_cost=merge_cost, lr_check=False,
-                                                         candidate=candidate,
-                                                         regression=True,
-                                                         penalize=False, slope=1, max_disparity_diff=1.5)
-            else:
-                eval_dict = used_profile.eval(X, Y, dataset, merge_cost=merge_cost, lr_check=False, candidate=candidate,
-                                              regression=True,
-                                              penalize=False, slope=1, max_disparity_diff=1.5)
-        else:
-            eval_dict = used_profile.eval(X, Y, dataset, use_resize=use_resize, use_dataset=use_dataset)
+        eval_dict = used_profile.eval(X, Y, dataset, use_resize=use_resize, use_padding_crop_size=use_padding_crop_size,
+                                      use_dataset=use_dataset, merge_cost=merge_cost, regression=True)
 
         time = utils.timespan_str(utils.toc(True))
         loss_str = f'loss = {utils.threshold_color(eval_dict["epe_loss"])}{eval_dict["epe_loss"]:.3f}{Style.RESET_ALL}'

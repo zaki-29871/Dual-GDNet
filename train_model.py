@@ -18,12 +18,12 @@ full_dataset = True
 small_dataset = False
 is_plot_image = False
 untexture_rate = 0
-dataset = ['flyingthings3D', 'KITTI_2015', 'KITTI_2015_Augmentation']
+dataset = ['flyingthings3D', 'KITTI_2015', 'KITTI_2015_Augmentation', 'KITTI_2012_Augmentation']
 image = ['cleanpass', 'finalpass']  # for flyingthings3D
 exception_count = 0
 
 used_profile = profile.GDNet_sdc6f()
-dataset = dataset[0]
+dataset = dataset[2]
 if dataset == 'flyingthings3D':
     image = image[1]
 
@@ -69,12 +69,16 @@ if dataset == 'flyingthings3D':
 
 elif dataset == 'KITTI_2015':
     train_dataset, test_dataset = random_split(
-        KITTI_2015(crop_size=(height, width), type='train', crop_seed=None,
+        KITTI_2015(use_crop_size=True, crop_size=(height, width), type='train', crop_seed=None,
                    untexture_rate=untexture_rate), seed=seed)
 
 elif dataset == 'KITTI_2015_Augmentation':
-    train_dataset = KITTI_2015_Augmentation(crop_size=(height, width), type='train', crop_seed=None, seed=0)
-    test_dataset = KITTI_2015_Augmentation(crop_size=(height, width), type='test', crop_seed=None, seed=0)
+    train_dataset = KITTI_2015_Augmentation(use_crop_size=True, crop_size=(height, width), type='train', crop_seed=None, seed=0)
+    test_dataset = KITTI_2015_Augmentation(use_crop_size=True, crop_size=(height, width), type='test', crop_seed=None, seed=0)
+
+elif dataset == 'KITTI_2012_Augmentation':
+    train_dataset = KITTI_2012_Augmentation(use_crop_size=True, crop_size=(height, width), type='train', crop_seed=None, seed=0)
+    test_dataset = KITTI_2012_Augmentation(use_crop_size=True, crop_size=(height, width), type='test', crop_seed=None, seed=0)
 
 else:
     raise Exception('Cannot find dataset: ' + dataset)
@@ -101,7 +105,7 @@ while v < max_version + 1:
             train_loader = DataLoader(random_subset(train_dataset, 160), batch_size=batch, shuffle=False)
             test_loader = DataLoader(random_subset(test_dataset, 40), batch_size=batch, shuffle=False)
 
-        elif dataset == 'KITTI_2015_Augmentation':
+        elif dataset in ['KITTI_2015_Augmentation', 'KITTI_2012_Augmentation']:
             train_loader = DataLoader(random_subset(train_dataset, 576), batch_size=batch, shuffle=False)
             test_loader = DataLoader(random_subset(test_dataset, 144), batch_size=batch, shuffle=False)
 
@@ -221,4 +225,4 @@ while v < max_version + 1:
         v -= 1
         # if exception_count >= 50:
         #     exit(-1)
-        exit(-1)
+        # exit(-1)
