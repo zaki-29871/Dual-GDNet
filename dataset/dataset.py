@@ -12,41 +12,30 @@ class FlyingThings3D(Dataset):
     ROOT = r'F:\Dataset\pytorch\flyingthings3d'
 
     # height, width = 540, 960
-
-    def __init__(self, max_disparity, use_crop_size=False, crop_size=(None, None), type='train', image='cleanpass',
-                 crop_seed=None, down_sampling=1,
-                 disparity=['left'], small=False):
-        if small:
-            self.ROOT += '_s'
+    def __init__(self, max_disparity, type='train', image='cleanpass', use_crop_size=False, crop_size=None,
+                 crop_seed=None, use_resize=False, resize=(None, None),
+                 use_padding_crop_size=False, padding_crop_size=(None, None)):
 
         assert os.path.exists(self.ROOT), 'Dataset path is not exist'
-        assert isinstance(down_sampling, int)
-        self.down_sampling = down_sampling
-        self.disparity = disparity
         self.data_max_disparity = []
+        self.image = image
         self.use_crop_size = use_crop_size
         self.crop_size = crop_size
-        self.image = image
         self.crop_seed = crop_seed
+        self.use_resize = use_resize
+        self.resize = resize
+        self.use_padding_crop_size = use_padding_crop_size
+        self.padding_crop_size = padding_crop_size
 
         if type == 'train':
-            for d in self.disparity:
-                self.data_max_disparity.append(utils.load(os.path.join(self.ROOT, f'{d}_max_disparity.np'))[0])
+            self.data_max_disparity.append(utils.load(os.path.join(self.ROOT, f'left_max_disparity.np'))[0])
             self.root = os.path.join(self.ROOT, 'TRAIN')
+            self.size = 22390
 
-            if small:
-                self.size = 7460
-            else:
-                self.size = 22390
         elif type == 'test':
-            for d in self.disparity:
-                self.data_max_disparity.append(utils.load(os.path.join(self.ROOT, f'{d}_max_disparity.np'))[1])
+            self.data_max_disparity.append(utils.load(os.path.join(self.ROOT, f'left_max_disparity.np'))[1])
             self.root = os.path.join(self.ROOT, 'TEST')
-
-            if small:
-                self.size = 1440
-            else:
-                self.size = 4370
+            self.size = 4370
 
         else:
             raise Exception(f'Unknown type: "{type}"')
@@ -65,7 +54,7 @@ class FlyingThings3D(Dataset):
     def __getitem__(self, index):
         if self.use_crop_size:
             index = self.mask_index[index]
-            X = utils.load(os.path.join(self.root, f'{self.image}/{index:05d}.np'))
+            X = utils.load(os.path.join(self.root, f'{self.image}/{index:05d}.np'))  # channel, height, width
             X = torch.from_numpy(X)
 
             cropper = utils.RandomCropper(X.shape[1:3], self.crop_size, seed=self.crop_seed)
@@ -73,23 +62,51 @@ class FlyingThings3D(Dataset):
             X = X.float() / 255
 
             Y_list = []
-            for d in self.disparity:
-                Y = utils.load(os.path.join(self.root, f'{d}_disparity/{index:05d}.np'))
-                Y = torch.from_numpy(Y)
-                Y = cropper.crop(Y)
-                Y_list.append(Y.unsqueeze(0))
+            Y = utils.load(os.path.join(self.root, f'left_disparity/{index:05d}.np'))
+            Y = torch.from_numpy(Y)
+            Y = cropper.crop(Y)
+            Y_list.append(Y.unsqueeze(0))
             Y = torch.cat(Y_list, dim=0)
 
-            if self.down_sampling != 1:
-                X = X[:, ::self.down_sampling, ::self.down_sampling]
-                Y = Y[:, ::self.down_sampling, ::self.down_sampling]
-                Y /= self.down_sampling
-
         elif self.use_resize:
-            pass
+            index = self.mask_index[index]
+            X = utils.load(os.path.join(self.root, f'{self.image}/{index:05d}.np'))  # channel, height, width
+            self.original_height, self.original_width = X.shape[1:]
+
+            X1 = X[:3, :, :].swapaxes(0, 2).swapaxes(0, 1)
+            X2 = X[3:, :, :].swapaxes(0, 2).swapaxes(0, 1)
+
+            X1 = cv2.resize(X1, (self.resize[1], self.resize[0]))
+            X2 = cv2.resize(X2, (self.resize[1], self.resize[0]))
+
+            X = np.concatenate([X1, X2], axis=2)
+            X = X.swapaxes(0, 1).swapaxes(0, 2)
+            X = torch.from_numpy(X).float() / 255.0
+
+            Y_list = []
+            Y = utils.load(os.path.join(self.root, f'left_disparity/{index:05d}.np'))
+            Y = torch.from_numpy(Y)
+            Y_list.append(Y.unsqueeze(0))
+            Y = torch.cat(Y_list, dim=0)
 
         elif self.use_padding_crop_size:
-            pass
+            index = self.mask_index[index]
+            X = utils.load(os.path.join(self.root, f'{self.image}/{index:05d}.np'))  # channel, height, width
+
+            self.original_height, self.original_width = X.shape[1:]
+            assert self.original_height <= self.padding_crop_size[0]
+            assert self.original_width <= self.padding_crop_size[1]
+
+            X_pad = np.zeros((6, *self.padding_crop_size), dtype=np.uint8)
+            X_pad[:X.shape[0], :X.shape[1], :] = X[...]
+            X = X_pad
+            X = torch.from_numpy(X).float() / 255.0
+
+            Y_list = []
+            Y = utils.load(os.path.join(self.root, f'left_disparity/{index:05d}.np'))
+            Y = torch.from_numpy(Y)
+            Y_list.append(Y.unsqueeze(0))
+            Y = torch.cat(Y_list, dim=0)
 
         return X.cuda(), Y.cuda()
 
@@ -165,8 +182,8 @@ class KITTI_2015(Dataset):
                         os.path.join(self.root, 'disp_occ_0/{:06d}_10.png'.format(index)))  # (376, 1241, 3) uint8
                     self.original_height, self.original_width = X1.shape[:2]
 
-                    X1 = cv2.resize(X1, (self.resize_width, self.resize_height))
-                    X2 = cv2.resize(X2, (self.resize_width, self.resize_height))
+                    X1 = cv2.resize(X1, (self.resize[1], self.resize[0]))
+                    X2 = cv2.resize(X2, (self.resize[1], self.resize[0]))
 
                     X1 = utils.rgb2bgr(X1)
                     X2 = utils.rgb2bgr(X2)
@@ -282,8 +299,6 @@ class KITTI_2015_benchmark(Dataset):
 
 
 class KITTI_Augmentation(Dataset):
-    ROOT = r'F:\Dataset\KITTI 2015 Data Augmentation'
-
     # KITTI 2015 original height and width (375, 1242, 3), dtype uint8
     # width range = [1224, 1242]
     # height range = [370, 376]
@@ -309,7 +324,7 @@ class KITTI_Augmentation(Dataset):
         self.use_crop_size = use_crop_size
         self.use_resize = use_resize
         self.use_padding_crop_size = use_padding_crop_size
-        self.resize_height, self.resize_width = resize
+        self.resize = resize
         self.crop_size = crop_size
         self.padding_crop_size = padding_crop_size
         self.crop_seed = crop_seed
@@ -325,8 +340,8 @@ class KITTI_Augmentation(Dataset):
                                             f'training/{self.get_disp_image_folder()}/{self.files[self.train_indexes[index]]}'))
                 self.original_height, self.original_width = X1.shape[:2]
 
-                X1 = cv2.resize(X1, (self.resize_width, self.resize_height))
-                X2 = cv2.resize(X2, (self.resize_width, self.resize_height))
+                X1 = cv2.resize(X1, (self.resize[1], self.resize[0]))
+                X2 = cv2.resize(X2, (self.resize[1], self.resize[0]))
 
                 X1 = utils.rgb2bgr(X1)
                 X2 = utils.rgb2bgr(X2)
@@ -368,8 +383,8 @@ class KITTI_Augmentation(Dataset):
                 Y = cv2.imread(os.path.join(self.get_root_directory(),
                                             f'training/{self.get_disp_image_folder()}/{self.files[self.train_indexes[index]]}'))
                 self.original_height, self.original_width = X1.shape[:2]
-                assert self.original_height < self.padding_crop_size[0]
-                assert self.original_width < self.padding_crop_size[1]
+                assert self.original_height <= self.padding_crop_size[0]
+                assert self.original_width <= self.padding_crop_size[1]
 
                 X1 = utils.rgb2bgr(X1)
                 X2 = utils.rgb2bgr(X2)

@@ -16,7 +16,7 @@ lr_check = False
 max_disparity_diff = 1.5
 merge_cost = True
 candidate = False
-plot_and_save_image = False
+plot_and_save_image = True
 
 # produce disparity methods
 use_crop_size = False
@@ -67,9 +67,9 @@ if use_crop_size:
         height, width = AerialImagery.image_size
 
     if dataset == 'flyingthings3D':
-        use_dataset = FlyingThings3D(max_disparity, crop_size=(height, width), type='test', crop_seed=0,
-                                     image=image)
-        test_dataset = random_subset(use_dataset, 100, seed=seed)
+        use_dataset = FlyingThings3D(max_disparity, type='test', use_crop_size=True, crop_size=(height, width),
+                                     crop_seed=0, image=image)
+        test_dataset = random_subset(use_dataset, 30, seed=seed)
 
     elif dataset == 'KITTI_2015':
         use_dataset = KITTI_2015(type='train', use_crop_size=True, crop_size=(height, width), crop_seed=0,
@@ -96,12 +96,22 @@ if use_crop_size:
         raise Exception('Cannot find dataset: ' + dataset)
 
 elif use_resize:
-    if dataset in ['KITTI_2015', 'KITTI_2015_benchmark', 'KITTI_2015_Augmentation', 'KITTI_2012_Augmentation']:
+    if dataset == 'flyingthings3D':
+        # height, width =   # GDNet_mdc6f
+        height, width = 576, 960  # GDNet_sdc6f
+        # height, width =   # GDNet_dc6f
+
+    elif dataset in ['KITTI_2015', 'KITTI_2015_benchmark', 'KITTI_2015_Augmentation', 'KITTI_2012_Augmentation']:
         # height, width = 352, 1216  # GDNet_mdc6f
         height, width = 384, 1280  # GDNet_sdc6f
         # height, width = 336, 1200  # GDNet_dc6f
 
-    if dataset == 'KITTI_2015':
+    if dataset == 'flyingthings3D':
+        use_dataset = FlyingThings3D(max_disparity, type='test', use_resize=True,
+                                     resize=(height, width), image=image)
+        test_dataset = random_subset(use_dataset, 30, seed=seed)
+
+    elif dataset == 'KITTI_2015':
         use_dataset = KITTI_2015(type='train', untexture_rate=0, use_resize=True, resize=(height, width))
         train_dataset, test_dataset = random_split(use_dataset, train_ratio=0.8, seed=seed)
 
@@ -117,19 +127,29 @@ elif use_resize:
         raise Exception('Cannot find dataset: ' + dataset)
 
 elif use_padding_crop_size:
-    if dataset in ['KITTI_2015', 'KITTI_2015_benchmark', 'KITTI_2015_Augmentation', 'KITTI_2012_Augmentation']:
+    if dataset == 'flyingthings3D':
+        # height, width =   # GDNet_mdc6f
+        height, width = 576, 960  # GDNet_sdc6f
+        # height, width =   # GDNet_dc6f
+
+    elif dataset in ['KITTI_2015', 'KITTI_2015_benchmark', 'KITTI_2015_Augmentation', 'KITTI_2012_Augmentation']:
         # height, width = 352, 1216  # GDNet_mdc6f
         height, width = 384, 1280  # GDNet_sdc6f
         # height, width = 336, 1200  # GDNet_dc6f
 
-    if dataset == 'KITTI_2015_Augmentation':
+    if dataset == 'flyingthings3D':
+        use_dataset = FlyingThings3D(max_disparity, type='test', use_padding_crop_size=True,
+                                     padding_crop_size=(height, width), image=image)
+        test_dataset = random_subset(use_dataset, 30, seed=seed)
+
+    elif dataset == 'KITTI_2015_Augmentation':
         use_dataset = KITTI_2015_Augmentation(type='test', use_padding_crop_size=True,
-                                              padding_crop_size=(height, width), seed=0)
+                                              padding_crop_size=(height, width), shuffle_seed=0)
         test_dataset = random_subset(use_dataset, 30, seed=seed)
 
     elif dataset == 'KITTI_2012_Augmentation':
         use_dataset = KITTI_2012_Augmentation(type='test', use_padding_crop_size=True,
-                                              padding_crop_size=(height, width), seed=0)
+                                              padding_crop_size=(height, width), shuffle_seed=0)
         test_dataset = random_subset(use_dataset, 30, seed=seed)
 
     elif dataset == 'KITTI_2015_benchmark':

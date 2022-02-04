@@ -14,8 +14,6 @@ max_version = 2000  # KITTI 2015 v1497 recommended version
 batch = 3
 seed = 0
 loss_threshold = 10
-full_dataset = True
-small_dataset = False
 is_plot_image = False
 untexture_rate = 0
 dataset = ['flyingthings3D', 'KITTI_2015', 'KITTI_2015_Augmentation', 'KITTI_2012_Augmentation']
@@ -58,14 +56,8 @@ print('Number of parameters: {:,}'.format(sum(p.numel() for p in model.parameter
 optimizer = optim.Adam(model.parameters(), lr=0.001, betas=(0.9, 0.999))
 
 if dataset == 'flyingthings3D':
-    train_dataset = FlyingThings3D(max_disparity, crop_size=(height, width), type='train', crop_seed=None, image=image,
-                                   small=small_dataset)
-    test_dataset = FlyingThings3D(max_disparity, crop_size=(height, width), type='test', crop_seed=None,
-                                  small=small_dataset)
-
-    if not full_dataset:
-        train_dataset = random_subset(train_dataset, 1920, seed=seed)
-        test_dataset = random_subset(test_dataset, 480, seed=seed)
+    train_dataset = FlyingThings3D(max_disparity, crop_size=(height, width), type='train', crop_seed=None, image=image)
+    test_dataset = FlyingThings3D(max_disparity, crop_size=(height, width), type='test', crop_seed=None, image=image)
 
 elif dataset == 'KITTI_2015':
     train_dataset, test_dataset = random_split(
@@ -73,12 +65,16 @@ elif dataset == 'KITTI_2015':
                    untexture_rate=untexture_rate), seed=seed)
 
 elif dataset == 'KITTI_2015_Augmentation':
-    train_dataset = KITTI_2015_Augmentation(use_crop_size=True, crop_size=(height, width), type='train', crop_seed=None, seed=0)
-    test_dataset = KITTI_2015_Augmentation(use_crop_size=True, crop_size=(height, width), type='test', crop_seed=None, seed=0)
+    train_dataset = KITTI_2015_Augmentation(use_crop_size=True, crop_size=(height, width), type='train', crop_seed=None,
+                                            shuffle_seed=0)
+    test_dataset = KITTI_2015_Augmentation(use_crop_size=True, crop_size=(height, width), type='test', crop_seed=None,
+                                           shuffle_seed=0)
 
 elif dataset == 'KITTI_2012_Augmentation':
-    train_dataset = KITTI_2012_Augmentation(use_crop_size=True, crop_size=(height, width), type='train', crop_seed=None, seed=0)
-    test_dataset = KITTI_2012_Augmentation(use_crop_size=True, crop_size=(height, width), type='test', crop_seed=None, seed=0)
+    train_dataset = KITTI_2012_Augmentation(use_crop_size=True, crop_size=(height, width), type='train', crop_seed=None,
+                                            shuffle_seed=0)
+    test_dataset = KITTI_2012_Augmentation(use_crop_size=True, crop_size=(height, width), type='test', crop_seed=None,
+                                           shuffle_seed=0)
 
 else:
     raise Exception('Cannot find dataset: ' + dataset)
