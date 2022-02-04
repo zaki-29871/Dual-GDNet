@@ -126,7 +126,6 @@ class FlyingThings3D(Dataset):
 
 
 class KITTI_2015(Dataset):
-    ROOT = r'F:\Dataset\KITTI 2015'
 
     # KITTI 2015 original height and width (375, 1242, 3), dtype uint8
     # height and width: (370, 1224) is the smallest size
@@ -134,17 +133,18 @@ class KITTI_2015(Dataset):
     # HEIGHT, WIDTH = 384, 1248
     # HEIGHT, WIDTH = 352, 1216  # GTX 2080 Ti
     # HEIGHT, WIDTH = 256, 1248  # GTX 1660 Ti
+    def __init__(self, type='train', use_crop_size=False, crop_size=None, crop_seed=None,
+                 use_resize=False, resize=(None, None), use_padding_crop_size=False, padding_crop_size=(None, None),
+                 untexture_rate=0.1):
 
-    def __init__(self, type='train', use_crop_size=False, crop_size=None, crop_seed=None, untexture_rate=0.1,
-                 use_resize=False, resize=(None, None)):
-        assert os.path.exists(self.ROOT), 'Dataset path is not exist'
+        assert os.path.exists(self.get_root_directory()), 'Dataset path is not exist'
         assert use_crop_size + use_resize <= 1, 'Using one of the crop size and the resize'
 
         self.type = type
         if type == 'train':
-            self.root = os.path.join(self.ROOT, 'training')
+            self.root = os.path.join(self.get_root_directory(), 'training')
         elif type == 'test':
-            self.root = os.path.join(self.ROOT, 'testing')
+            self.root = os.path.join(self.get_root_directory(), 'testing')
         else:
             raise Exception('Unknown type "{}"'.format(type))
 
@@ -152,7 +152,9 @@ class KITTI_2015(Dataset):
         self.crop_size = crop_size
         self.crop_seed = crop_seed
         self.use_resize = use_resize
-        self.resize_height, self.resize_width = resize
+        self.resize = resize
+        self.use_padding_crop_size = use_padding_crop_size
+        self.padding_crop_size = padding_crop_size
         self.untexture_rate = untexture_rate
 
     def __getitem__(self, index):
@@ -192,8 +194,7 @@ class KITTI_2015(Dataset):
                     X = X.swapaxes(0, 2).swapaxes(1, 2)  # channel*2, height, width
 
                     Y = Y[:, :, 0]
-                    X, Y = torch.from_numpy(X).float() / 255, torch.from_numpy(Y)
-                    Y = Y.unsqueeze(0)
+                    X, Y = torch.from_numpy(X).float() / 255, torch.from_numpy(Y).float().unsqueeze(0)
 
                 elif self.use_crop_size:
                     X1 = cv2.imread(os.path.join(self.root, 'image_2/{:06d}_10.png'.format(index)))
@@ -208,11 +209,37 @@ class KITTI_2015(Dataset):
                     X = X.swapaxes(0, 2).swapaxes(1, 2)
 
                     Y = Y[:, :, 0]
-                    X, Y = torch.from_numpy(X).float() / 255, torch.from_numpy(Y)
-                    Y = Y.unsqueeze(0)
+                    X, Y = torch.from_numpy(X).float() / 255, torch.from_numpy(Y).float().unsqueeze(0)
 
                     cropper = utils.RandomCropper(X1.shape[0:2], self.crop_size, seed=self.crop_seed)
                     X, Y = cropper.crop(X), cropper.crop(Y)
+
+                elif self.use_padding_crop_size:
+
+                    X1 = cv2.imread(os.path.join(self.root, 'image_2/{:06d}_10.png'.format(index)))
+                    X2 = cv2.imread(os.path.join(self.root, 'image_3/{:06d}_10.png'.format(index)))
+                    Y = cv2.imread(os.path.join(self.root, 'disp_occ_0/{:06d}_10.png'.format(index)))  # (376, 1241, 3) uint8
+                    self.original_height, self.original_width = X1.shape[:2]
+                    assert self.original_height <= self.padding_crop_size[0]
+                    assert self.original_width <= self.padding_crop_size[1]
+
+                    X1 = utils.rgb2bgr(X1)
+                    X2 = utils.rgb2bgr(X2)
+
+                    X1_pad = np.zeros((*self.padding_crop_size, 3), dtype=np.uint8)
+                    X2_pad = np.zeros((*self.padding_crop_size, 3), dtype=np.uint8)
+
+                    X1_pad[:X1.shape[0], :X1.shape[1], :] = X1[...]
+                    X2_pad[:X1.shape[0], :X1.shape[1], :] = X2[...]
+
+                    X1 = X1_pad
+                    X2 = X2_pad
+
+                    X = np.concatenate([X1, X2], axis=2)  # batch, height, width, channel
+                    X = X.swapaxes(0, 2).swapaxes(1, 2)  # channel*2, height, width
+
+                    Y = Y[:, :, 0]
+                    X, Y = torch.from_numpy(X).float() / 255, torch.from_numpy(Y).float().unsqueeze(0)
 
         elif self.type == 'test':
             if self.use_resize:
@@ -246,7 +273,44 @@ class KITTI_2015(Dataset):
 
                 Y = torch.ones((1, X.size(1), X.size(2)), dtype=torch.float)
 
+            elif self.use_padding_crop_size:
+                X1 = cv2.imread(os.path.join(self.root, 'image_2/{:06d}_10.png'.format(index)))
+                X2 = cv2.imread(os.path.join(self.root, 'image_3/{:06d}_10.png'.format(index)))
+                self.original_height, self.original_width = X1.shape[:2]
+                assert self.original_height <= self.padding_crop_size[0]
+                assert self.original_width <= self.padding_crop_size[1]
+
+                X1 = utils.rgb2bgr(X1)
+                X2 = utils.rgb2bgr(X2)
+
+                X1_pad = np.zeros((*self.padding_crop_size, 3), dtype=np.uint8)
+                X2_pad = np.zeros((*self.padding_crop_size, 3), dtype=np.uint8)
+
+                X1_pad[:X1.shape[0], :X1.shape[1], :] = X1[...]
+                X2_pad[:X1.shape[0], :X1.shape[1], :] = X2[...]
+
+                X1 = X1_pad
+                X2 = X2_pad
+
+                X = np.concatenate([X1, X2], axis=2)  # batch, height, width, channel
+                X = X.swapaxes(0, 2).swapaxes(1, 2)  # channel*2, height, width
+                X = torch.from_numpy(X).float() / 255
+
+                Y = torch.ones((1, X.size(1), X.size(2)), dtype=torch.float)
+
         return X.cuda(), Y.cuda()
+
+    def get_root_directory(self):
+        return f'F:\Dataset\KITTI 2015'
+
+    def get_left_image_folder(self):
+        return 'image_2'
+
+    def get_right_image_folder(self):
+        return 'image_3'
+
+    def get_disp_image_folder(self):
+        return 'disp_occ_0'
 
     def __len__(self):
         if self.type == 'train':

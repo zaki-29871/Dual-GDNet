@@ -16,11 +16,11 @@ lr_check = False
 max_disparity_diff = 1.5
 merge_cost = True
 candidate = False
-plot_and_save_image = True
+plot_and_save_image = False
 
 # produce disparity methods
 use_crop_size = False
-use_resize = False  # only KITTI_2015_benchmark uses this, and it also doesn't have crop_size setting
+use_resize = False
 use_padding_crop_size = True
 
 if use_resize + use_crop_size + use_padding_crop_size != 1:
@@ -31,7 +31,7 @@ dataset = ['flyingthings3D', 'KITTI_2015', 'KITTI_2015_Augmentation', 'KITTI_201
 image = ['cleanpass', 'finalpass']  # for flyingthings3D
 
 used_profile = profile.GDNet_sdc6f()
-dataset = dataset[2]
+dataset = dataset[1]
 if dataset == 'flyingthings3D':
     image = image[1]
 
@@ -43,8 +43,8 @@ print('Using dataset:', dataset)
 print('Max disparity:', max_disparity)
 print('Number of parameters: {:,}'.format(sum(p.numel() for p in model.parameters())))
 print('Plot and save result image:', plot_and_save_image)
-print('Using use resize mode:', use_resize)
 print('Using use crop size mode:', use_crop_size)
+print('Using use resize mode:', use_resize)
 print('Using use use padding crop size:', use_padding_crop_size)
 
 losses = []
@@ -141,6 +141,10 @@ elif use_padding_crop_size:
         use_dataset = FlyingThings3D(max_disparity, type='test', use_padding_crop_size=True,
                                      padding_crop_size=(height, width), image=image)
         test_dataset = random_subset(use_dataset, 30, seed=seed)
+
+    elif dataset == 'KITTI_2015':
+        use_dataset = KITTI_2015(type='train', untexture_rate=0, use_padding_crop_size=True, padding_crop_size=(height, width))
+        train_dataset, test_dataset = random_split(use_dataset, train_ratio=0.8, seed=seed)
 
     elif dataset == 'KITTI_2015_Augmentation':
         use_dataset = KITTI_2015_Augmentation(type='test', use_padding_crop_size=True,
