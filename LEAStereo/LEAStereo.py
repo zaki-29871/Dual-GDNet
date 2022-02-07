@@ -3,14 +3,14 @@ import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
 
-from LEAStereo.models.build_model_2d import Disp
+from LEAStereo.models.build_model_2d import CostInterpolation
 from LEAStereo.models.decoding_formulas import network_layer_to_space
 from LEAStereo.new_model_2d import newFeature
 from LEAStereo.skip_model_3d import newMatching
 
 
 class LEAStereo(nn.Module):
-    def __init__(self, maxdisp=192, maxdisp_downsampleing=3,
+    def __init__(self, maxdisp, maxdisp_downsampleing,
                  net_arch_fea='LEAStereo/run/architecture/feature_network_path.npy',
                  cell_arch_fea='LEAStereo/run/architecture/feature_genotype.npy',
                  net_arch_mat='LEAStereo/run/architecture/matching_network_path.npy',
@@ -27,7 +27,7 @@ class LEAStereo(nn.Module):
         self.maxdisp = maxdisp
         self.feature = newFeature(network_arch_fea, cell_arch_fea)
         self.matching = newMatching(network_arch_mat, cell_arch_mat)
-        self.disp = Disp(self.maxdisp)
+        self.cost_interpolation = CostInterpolation(self.maxdisp)
         self.maxdisp_downsampleing = maxdisp_downsampleing
 
     def forward(self, x, y):
@@ -46,8 +46,8 @@ class LEAStereo(nn.Module):
                 cost[:, x.size()[1]:, i, :, i:] = y
 
         cost = self.matching(cost)
-        disp = self.disp(cost)
-        return disp
+        cost = self.cost_interpolation(cost)
+        return cost
 
     def get_params(self):
         back_bn_params, back_no_bn_params = self.encoder.get_params()

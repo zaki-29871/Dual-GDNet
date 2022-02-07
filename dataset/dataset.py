@@ -26,6 +26,7 @@ class FlyingThings3D(Dataset):
         self.resize = resize
         self.use_padding_crop_size = use_padding_crop_size
         self.padding_crop_size = padding_crop_size
+        self.pass_info = {}
 
         if type == 'train':
             self.data_max_disparity.append(utils.load(os.path.join(self.ROOT, f'left_max_disparity.np'))[0])
@@ -71,7 +72,7 @@ class FlyingThings3D(Dataset):
         elif self.use_resize:
             index = self.mask_index[index]
             X = utils.load(os.path.join(self.root, f'{self.image}/{index:05d}.np'))  # channel, height, width
-            self.original_height, self.original_width = X.shape[1:]
+            self.pass_info['original_height'], self.pass_info['original_width'] = X.shape[1:]
 
             X1 = X[:3, :, :].swapaxes(0, 2).swapaxes(0, 1)
             X2 = X[3:, :, :].swapaxes(0, 2).swapaxes(0, 1)
@@ -93,9 +94,9 @@ class FlyingThings3D(Dataset):
             index = self.mask_index[index]
             X = utils.load(os.path.join(self.root, f'{self.image}/{index:05d}.np'))  # channel, height, width
 
-            self.original_height, self.original_width = X.shape[1:]
-            assert self.original_height <= self.padding_crop_size[0]
-            assert self.original_width <= self.padding_crop_size[1]
+            self.pass_info['original_height'], self.pass_info['original_width'] = X.shape[1:]
+            assert self.pass_info['original_height'] <= self.padding_crop_size[0]
+            assert self.pass_info['original_width'] <= self.padding_crop_size[1]
 
             X_pad = np.zeros((6, *self.padding_crop_size), dtype=np.uint8)
             X_pad[:X.shape[0], :X.shape[1], :] = X[...]
@@ -108,7 +109,7 @@ class FlyingThings3D(Dataset):
             Y_list.append(Y.unsqueeze(0))
             Y = torch.cat(Y_list, dim=0)
 
-        return X, Y
+        return X, Y, self.pass_info
 
     def __len__(self):
         return self.size
@@ -123,6 +124,9 @@ class FlyingThings3D(Dataset):
                 self.mask_index[m] = i
                 m += 1
             i += 1
+
+    def __str__(self):
+        return 'FlyingThings3D'
 
 
 class KITTI_2015(Dataset):
@@ -156,6 +160,7 @@ class KITTI_2015(Dataset):
         self.use_padding_crop_size = use_padding_crop_size
         self.padding_crop_size = padding_crop_size
         self.untexture_rate = untexture_rate
+        self.pass_info = {}
 
     def __getitem__(self, index):
         if self.type == 'train':
@@ -180,9 +185,8 @@ class KITTI_2015(Dataset):
                 if self.use_resize:
                     X1 = cv2.imread(os.path.join(self.root, 'image_2/{:06d}_10.png'.format(index)))
                     X2 = cv2.imread(os.path.join(self.root, 'image_3/{:06d}_10.png'.format(index)))
-                    Y = cv2.imread(
-                        os.path.join(self.root, 'disp_occ_0/{:06d}_10.png'.format(index)))  # (376, 1241, 3) uint8
-                    self.original_height, self.original_width = X1.shape[:2]
+                    Y = cv2.imread(os.path.join(self.root, 'disp_occ_0/{:06d}_10.png'.format(index)))  # (376, 1241, 3) uint8
+                    self.pass_info['original_height'], self.pass_info['original_width'] = X1.shape[:2]
 
                     X1 = cv2.resize(X1, (self.resize[1], self.resize[0]))
                     X2 = cv2.resize(X2, (self.resize[1], self.resize[0]))
@@ -199,8 +203,7 @@ class KITTI_2015(Dataset):
                 elif self.use_crop_size:
                     X1 = cv2.imread(os.path.join(self.root, 'image_2/{:06d}_10.png'.format(index)))
                     X2 = cv2.imread(os.path.join(self.root, 'image_3/{:06d}_10.png'.format(index)))
-                    Y = cv2.imread(
-                        os.path.join(self.root, 'disp_occ_0/{:06d}_10.png'.format(index)))  # (376, 1241, 3) uint8
+                    Y = cv2.imread(os.path.join(self.root, 'disp_occ_0/{:06d}_10.png'.format(index)))  # (376, 1241, 3) uint8
 
                     X1 = utils.rgb2bgr(X1)
                     X2 = utils.rgb2bgr(X2)
@@ -219,9 +222,10 @@ class KITTI_2015(Dataset):
                     X1 = cv2.imread(os.path.join(self.root, 'image_2/{:06d}_10.png'.format(index)))
                     X2 = cv2.imread(os.path.join(self.root, 'image_3/{:06d}_10.png'.format(index)))
                     Y = cv2.imread(os.path.join(self.root, 'disp_occ_0/{:06d}_10.png'.format(index)))  # (376, 1241, 3) uint8
-                    self.original_height, self.original_width = X1.shape[:2]
-                    assert self.original_height <= self.padding_crop_size[0]
-                    assert self.original_width <= self.padding_crop_size[1]
+
+                    self.pass_info['original_height'], self.pass_info['original_width'] = X1.shape[:2]
+                    assert self.pass_info['original_height'] <= self.padding_crop_size[0]
+                    assert self.pass_info['original_width'] <= self.padding_crop_size[1]
 
                     X1 = utils.rgb2bgr(X1)
                     X2 = utils.rgb2bgr(X2)
@@ -245,7 +249,7 @@ class KITTI_2015(Dataset):
             if self.use_resize:
                 X1 = cv2.imread(os.path.join(self.root, 'image_2/{:06d}_10.png'.format(index)))
                 X2 = cv2.imread(os.path.join(self.root, 'image_3/{:06d}_10.png'.format(index)))
-                self.original_height, self.original_width = X1.shape[:2]
+                self.pass_info['original_height'], self.pass_info['original_width'] = X1.shape[:2]
 
                 X1 = cv2.resize(X1, (self.resize_width, self.resize_height))
                 X2 = cv2.resize(X2, (self.resize_width, self.resize_height))
@@ -276,9 +280,9 @@ class KITTI_2015(Dataset):
             elif self.use_padding_crop_size:
                 X1 = cv2.imread(os.path.join(self.root, 'image_2/{:06d}_10.png'.format(index)))
                 X2 = cv2.imread(os.path.join(self.root, 'image_3/{:06d}_10.png'.format(index)))
-                self.original_height, self.original_width = X1.shape[:2]
-                assert self.original_height <= self.padding_crop_size[0]
-                assert self.original_width <= self.padding_crop_size[1]
+                self.pass_info['original_height'], self.pass_info['original_width'] = X1.shape[:2]
+                assert self.pass_info['original_height'] <= self.padding_crop_size[0]
+                assert self.pass_info['original_width'] <= self.padding_crop_size[1]
 
                 X1 = utils.rgb2bgr(X1)
                 X2 = utils.rgb2bgr(X2)
@@ -298,7 +302,7 @@ class KITTI_2015(Dataset):
 
                 Y = torch.ones((1, X.size(1), X.size(2)), dtype=torch.float)
 
-        return X, Y
+        return X, Y, self.pass_info
 
     def get_root_directory(self):
         return f'F:\Dataset\KITTI 2015'
@@ -318,6 +322,9 @@ class KITTI_2015(Dataset):
         if self.type == 'test':
             return 20
 
+    def __str__(self):
+        return 'KITTI_2015'
+
 
 class KITTI_2015_benchmark(Dataset):
     ROOT = r'F:\Dataset\KITTI 2015'
@@ -330,13 +337,14 @@ class KITTI_2015_benchmark(Dataset):
         self.root = os.path.join(self.ROOT, 'testing')
         self.use_padding_crop_size = use_padding_crop_size
         self.padding_crop_size = padding_crop_size
+        self.pass_info = {}
 
     def __getitem__(self, index):
         X1 = cv2.imread(os.path.join(self.root, 'image_2/{:06d}_10.png'.format(index)))
         X2 = cv2.imread(os.path.join(self.root, 'image_3/{:06d}_10.png'.format(index)))
-        self.original_height, self.original_width = X1.shape[:2]
-        assert self.original_height < self.padding_crop_size[0]
-        assert self.original_width < self.padding_crop_size[1]
+        self.pass_info['original_height'], self.pass_info['original_width'] = X1.shape[:2]
+        assert self.pass_info['original_height'] <= self.padding_crop_size[0]
+        assert self.pass_info['original_width'] <= self.padding_crop_size[1]
 
         X1 = utils.rgb2bgr(X1)
         X2 = utils.rgb2bgr(X2)
@@ -354,12 +362,15 @@ class KITTI_2015_benchmark(Dataset):
         X = X.swapaxes(0, 2).swapaxes(1, 2)  # channel*2, height, width
         X = torch.from_numpy(X) / 255.0
 
-        Y = torch.ones((1, self.original_height, self.original_width), dtype=torch.float)
+        Y = torch.ones((1, self.pass_info['original_height'], self.pass_info['original_width']), dtype=torch.float)
 
-        return X, Y
+        return X, Y, self.pass_info
 
     def __len__(self):
         return 200
+
+    def __str__(self):
+        return 'KITTI_2015_benchmark'
 
 
 class KITTI_Augmentation(Dataset):
@@ -392,6 +403,7 @@ class KITTI_Augmentation(Dataset):
         self.crop_size = crop_size
         self.padding_crop_size = padding_crop_size
         self.crop_seed = crop_seed
+        self.pass_info = {}
 
     def __getitem__(self, index):
         if self.type == 'train':
@@ -402,7 +414,7 @@ class KITTI_Augmentation(Dataset):
                                              f'training/{self.get_right_image_folder()}/{self.files[self.train_indexes[index]]}'))
                 Y = cv2.imread(os.path.join(self.get_root_directory(),
                                             f'training/{self.get_disp_image_folder()}/{self.files[self.train_indexes[index]]}'))
-                self.original_height, self.original_width = X1.shape[:2]
+                self.pass_info['original_height'], self.pass_info['original_width'] = X1.shape[:2]
 
                 X1 = cv2.resize(X1, (self.resize[1], self.resize[0]))
                 X2 = cv2.resize(X2, (self.resize[1], self.resize[0]))
@@ -446,9 +458,10 @@ class KITTI_Augmentation(Dataset):
                                              f'training/{self.get_right_image_folder()}/{self.files[self.train_indexes[index]]}'))
                 Y = cv2.imread(os.path.join(self.get_root_directory(),
                                             f'training/{self.get_disp_image_folder()}/{self.files[self.train_indexes[index]]}'))
-                self.original_height, self.original_width = X1.shape[:2]
-                assert self.original_height <= self.padding_crop_size[0]
-                assert self.original_width <= self.padding_crop_size[1]
+
+                self.pass_info['original_height'], self.pass_info['original_width'] = X1.shape[:2]
+                assert self.pass_info['original_height'] <= self.padding_crop_size[0]
+                assert self.pass_info['original_width'] <= self.padding_crop_size[1]
 
                 X1 = utils.rgb2bgr(X1)
                 X2 = utils.rgb2bgr(X2)
@@ -478,7 +491,7 @@ class KITTI_Augmentation(Dataset):
                                              f'testing/{self.get_right_image_folder()}/{self.files[self.test_indexes[index]]}'))
                 Y = cv2.imread(os.path.join(self.get_root_directory(),
                                             f'testing/{self.get_disp_image_folder()}/{self.files[self.test_indexes[index]]}'))
-                self.original_height, self.original_width = X1.shape[:2]
+                self.pass_info['original_height'], self.pass_info['original_width'] = X1.shape[:2]
 
                 X1 = cv2.resize(X1, (self.resize_width, self.resize_height))
                 X2 = cv2.resize(X2, (self.resize_width, self.resize_height))
@@ -522,9 +535,10 @@ class KITTI_Augmentation(Dataset):
                                              f'testing/{self.get_right_image_folder()}/{self.files[self.test_indexes[index]]}'))
                 Y = cv2.imread(os.path.join(self.get_root_directory(),
                                             f'testing/{self.get_disp_image_folder()}/{self.files[self.test_indexes[index]]}'))
-                self.original_height, self.original_width = X1.shape[:2]
-                assert self.original_height < self.padding_crop_size[0]
-                assert self.original_width < self.padding_crop_size[1]
+
+                self.pass_info['original_height'], self.pass_info['original_width'] = X1.shape[:2]
+                assert self.pass_info['original_height'] < self.padding_crop_size[0]
+                assert self.pass_info['original_height'] < self.padding_crop_size[1]
 
                 X1 = utils.rgb2bgr(X1)
                 X2 = utils.rgb2bgr(X2)
@@ -546,7 +560,7 @@ class KITTI_Augmentation(Dataset):
                 Y = Y.unsqueeze(0)
                 X, Y = X.float() / 255, Y.float()
 
-        return X, Y
+        return X, Y, self.pass_info
 
     def get_root_directory(self):
         return ''
@@ -571,6 +585,9 @@ class KITTI_Augmentation(Dataset):
             return self.get_train_size()
         if self.type == 'test':
             return self.get_test_size()
+
+    def __str__(self):
+        pass
 
 
 class KITTI_2015_Augmentation(KITTI_Augmentation):
@@ -601,6 +618,9 @@ class KITTI_2015_Augmentation(KITTI_Augmentation):
     def get_test_size(self):
         return 960
 
+    def __str__(self):
+        return 'KITTI_2015_Augmentation'
+
 
 class KITTI_2012_Augmentation(KITTI_Augmentation):
     ROOT = r'F:\Dataset\KITTI 2015 Data Augmentation'
@@ -630,6 +650,9 @@ class KITTI_2012_Augmentation(KITTI_Augmentation):
 
     def get_test_size(self):
         return 936
+
+    def __str__(self):
+        return 'KITTI_2012_Augmentation'
 
 
 class AerialImagery(Dataset):
@@ -677,6 +700,9 @@ class AerialImagery(Dataset):
 
     def __len__(self):
         return len(self.rc)
+
+    def __str__(self):
+        return 'AerialImagery'
 
 
 def random_subset(dataset, size, seed=None):

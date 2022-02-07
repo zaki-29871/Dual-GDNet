@@ -18,7 +18,7 @@ def main():
     loss_threshold = 10
     is_plot_image = False
     untexture_rate = 0
-    dataset = ['flyingthings3D', 'KITTI_2015', 'KITTI_2015_Augmentation', 'KITTI_2012_Augmentation'][2]
+    dataset_name = ['flyingthings3D', 'KITTI_2015', 'KITTI_2015_Augmentation', 'KITTI_2012_Augmentation'][3]
     exception_count = 0
     used_profile = profile.GDNet_sdc6f()
     dataloader_kwargs = {'num_workers': 8, 'pin_memory': True, 'drop_last': True}
@@ -40,31 +40,36 @@ def main():
         height, width = 96, 320  # 320 - 128 = 192
         max_disparity = 128
 
+    elif isinstance(used_profile, profile.LEAStereo_fdcf):
+        height, width = 240, 576  # 576 - 150 = 426
+        max_disparity = 150
+
     model = used_profile.load_model(max_disparity, version)[1]
     version, loss_history = used_profile.load_history(version)
+    torch.backends.cudnn.benchmark = True
 
     print(f'CUDA abailable cores: {torch.cuda.device_count()}')
     print(f'Batch: {batch}')
     print('Using model:', used_profile)
-    print('Using dataset:', dataset)
+    print('Using dataset:', dataset_name)
     print('Image size:', (height, width))
     print('Max disparity:', max_disparity)
     print('Number of parameters: {:,}'.format(sum(p.numel() for p in model.parameters())))
 
     optimizer = optim.Adam(model.parameters(), lr=0.001, betas=(0.9, 0.999))
 
-    if dataset == 'flyingthings3D':
+    if dataset_name == 'flyingthings3D':
         train_dataset = FlyingThings3D(max_disparity, type='train', use_crop_size=True, crop_size=(height, width),
                                        crop_seed=None, image='finalpass')
         test_dataset = FlyingThings3D(max_disparity, type='test', use_crop_size=True, crop_size=(height, width),
                                       crop_seed=None, image='finalpass')
 
-    elif dataset == 'KITTI_2015':
+    elif dataset_name == 'KITTI_2015':
         train_dataset, test_dataset = random_split(
             KITTI_2015(use_crop_size=True, crop_size=(height, width), type='train', crop_seed=None,
                        untexture_rate=untexture_rate), seed=seed)
 
-    elif dataset == 'KITTI_2015_Augmentation':
+    elif dataset_name == 'KITTI_2015_Augmentation':
         train_dataset = KITTI_2015_Augmentation(use_crop_size=True, crop_size=(height, width), type='train',
                                                 crop_seed=None,
                                                 shuffle_seed=0)
@@ -72,7 +77,7 @@ def main():
                                                crop_seed=None,
                                                shuffle_seed=0)
 
-    elif dataset == 'KITTI_2012_Augmentation':
+    elif dataset_name == 'KITTI_2012_Augmentation':
         train_dataset = KITTI_2012_Augmentation(use_crop_size=True, crop_size=(height, width), type='train',
                                                 crop_seed=None,
                                                 shuffle_seed=0)
@@ -81,7 +86,7 @@ def main():
                                                shuffle_seed=0)
 
     else:
-        raise Exception('Cannot find dataset: ' + dataset)
+        raise Exception('Cannot find dataset: ' + dataset_name)
 
     print('Number of training data:', len(train_dataset))
     print('Number of testing data:', len(test_dataset))
@@ -93,20 +98,26 @@ def main():
         try:
             epoch_start_time = datetime.datetime.now()
             print('Exception count:', exception_count)
-            if dataset == 'flyingthings3D':
-                train_loader = DataLoader(random_subset(train_dataset, 576), batch_size=batch, shuffle=False, **dataloader_kwargs)
-                test_loader = DataLoader(random_subset(test_dataset, 144), batch_size=batch, shuffle=False, **dataloader_kwargs)
+            if dataset_name == 'flyingthings3D':
+                train_loader = DataLoader(random_subset(train_dataset, 576), batch_size=batch, shuffle=False,
+                                          **dataloader_kwargs)
+                test_loader = DataLoader(random_subset(test_dataset, 144), batch_size=batch, shuffle=False,
+                                         **dataloader_kwargs)
 
-            elif dataset == 'KITTI_2015':
-                train_loader = DataLoader(random_subset(train_dataset, 160), batch_size=batch, shuffle=False, **dataloader_kwargs)
-                test_loader = DataLoader(random_subset(test_dataset, 40), batch_size=batch, shuffle=False, **dataloader_kwargs)
+            elif dataset_name == 'KITTI_2015':
+                train_loader = DataLoader(random_subset(train_dataset, 160), batch_size=batch, shuffle=False,
+                                          **dataloader_kwargs)
+                test_loader = DataLoader(random_subset(test_dataset, 40), batch_size=batch, shuffle=False,
+                                         **dataloader_kwargs)
 
-            elif dataset in ['KITTI_2015_Augmentation', 'KITTI_2012_Augmentation']:
-                train_loader = DataLoader(random_subset(train_dataset, 576), batch_size=batch, shuffle=False, **dataloader_kwargs)
-                test_loader = DataLoader(random_subset(test_dataset, 144), batch_size=batch, shuffle=False, **dataloader_kwargs)
+            elif dataset_name in ['KITTI_2015_Augmentation', 'KITTI_2012_Augmentation']:
+                train_loader = DataLoader(random_subset(train_dataset, 576), batch_size=batch, shuffle=False,
+                                          **dataloader_kwargs)
+                test_loader = DataLoader(random_subset(test_dataset, 144), batch_size=batch, shuffle=False,
+                                         **dataloader_kwargs)
 
             else:
-                raise Exception('Cannot find dataset: ' + dataset)
+                raise Exception('Cannot find dataset: ' + dataset_name)
 
             train_loss = []
             test_loss = []
@@ -115,7 +126,7 @@ def main():
 
             print('Start training, version = {}'.format(v))
             model.train()
-            for batch_index, (X, Y) in enumerate(train_loader):
+            for batch_index, (X, Y, pass_info) in enumerate(train_loader):
                 if torch.all(Y == 0):
                     print('Detect Y are all zero')
                     continue
@@ -124,12 +135,12 @@ def main():
                 utils.tic()
                 if isinstance(used_profile, profile.GDNet_flip_training):
                     optimizer.zero_grad()
-                    train_dict0 = used_profile.train(X, Y, dataset, flip=False)
+                    train_dict0 = used_profile.train(X, Y, dataset_name, flip=False)
                     train_dict0['loss'].backward()
                     optimizer.step()
 
                     optimizer.zero_grad()
-                    train_dict1 = used_profile.train(X, Y, dataset, flip=True)
+                    train_dict1 = used_profile.train(X, Y, dataset_name, flip=True)
                     train_dict1['loss'].backward()
                     optimizer.step()
 
@@ -141,7 +152,7 @@ def main():
                     train_dict = train_dict0
                 else:
                     optimizer.zero_grad()
-                    train_dict = used_profile.train(X, Y, dataset)
+                    train_dict = used_profile.train(X, Y, dataset_name)
                     train_dict['loss'].backward()
                     loss = train_dict['loss']
                     epe_loss = train_dict['epe_loss']
@@ -156,7 +167,7 @@ def main():
 
                 if is_plot_image:
                     plotter = utils.CostPlotter()
-                    plotter.plot_image_disparity(X[0], Y[0, 0], dataset, train_dict,
+                    plotter.plot_image_disparity(X[0], Y[0, 0], train_dataset, train_dict,
                                                  max_disparity=max_disparity)
 
                 if torch.isnan(loss):
@@ -169,21 +180,15 @@ def main():
 
             print('Start testing, version = {}'.format(v))
             model.eval()
-            for batch_index, (X, Y) in enumerate(test_loader):
+            for batch_index, (X, Y, pass_info) in enumerate(test_loader):
                 if torch.all(Y == 0):
                     print('Detect Y are all zero')
                     continue
                 X, Y = X.cuda(), Y.cuda()
 
+                utils.tic()
                 with torch.no_grad():
-                    utils.tic()
-                    if isinstance(used_profile, profile.GDNet_mdc6):
-                        eval_dict = used_profile.eval(X, Y, dataset, merge_cost=False, lr_check=False, candidate=False,
-                                                      regression=True,
-                                                      penalize=False, slope=1, max_disparity_diff=1.5)
-                    else:
-                        eval_dict = used_profile.eval(X, Y, dataset)
-
+                    eval_dict = used_profile.eval(X, Y, pass_info, dataset_name)
                     time = utils.timespan_str(utils.toc(True))
                     loss_str = f'epe loss = {utils.threshold_color(eval_dict["epe_loss"])}{eval_dict["epe_loss"]:.3f}{Style.RESET_ALL}'
                     error_rate_str = f'error rate = {eval_dict["error_sum"] / eval_dict["total_eval"]:.2%}'
@@ -195,7 +200,7 @@ def main():
 
                     if is_plot_image:
                         plotter = utils.CostPlotter()
-                        plotter.plot_image_disparity(X[0], Y[0, 0], dataset, eval_dict,
+                        plotter.plot_image_disparity(X[0], Y[0, 0], test_dataset, eval_dict,
                                                      max_disparity=max_disparity)
 
                     if torch.isnan(eval_dict["epe_loss"]):

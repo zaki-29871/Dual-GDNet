@@ -12,6 +12,8 @@ import GDNet.GDNet_sdc6
 import GDNet.GDNet_sdc6f
 import GDNet.GDNet_fdc6
 import GDNet.GDNet_fdc6f
+import LEAStereo.LEAStereo
+import LEAStereo.LEAStereo_flip
 import os
 import cv2
 import utils
@@ -216,10 +218,15 @@ class GDNet_c(Profile):
         self.squeeze_cost = GDNet.module.SqueezeCost()
         self.squeeze_cost_grad = GDNet.module.SqueezeCostByGradient()
 
-    def train(self, X, Y, dataset):
+    def train(self, X, Y, dataset_name):
         Y = Y[:, 0, :, :]
 
-        if self.cost_count == 3:
+        if self.cost_count == 1:
+            cost = self.model(X[:, 0:3, :, :], X[:, 3:6, :, :])
+            loss = self.disparity_class(cost, Y)
+            disp = torch.argmax(cost, dim=1).float()
+
+        elif self.cost_count == 3:
             cost0, cost1, cost2 = self.model(X[:, 0:3, :, :], X[:, 3:6, :, :])
             loss0 = self.disparity_class(cost0, Y)
             loss1 = self.disparity_class(cost1, Y)
@@ -237,7 +244,7 @@ class GDNet_c(Profile):
             loss = 0.1 * loss0 + 0.2 * loss1 + 0.4 * loss2 + 0.6 * loss3 + loss4
             disp = torch.argmax(cost4, dim=1).float()
 
-        mask = utils.y_mask(Y, self.max_disparity, dataset)
+        mask = utils.y_mask(Y, self.max_disparity, dataset_name)
         epe_loss = utils.EPE_loss(disp[mask], Y[mask])
 
         return {
@@ -246,7 +253,7 @@ class GDNet_c(Profile):
             'disp': disp
         }
 
-    def eval(self, X, Y, dataset):
+    def eval(self, X, Y, dataset_name):
         Y = Y[:, 0, :, :]
         cost = self.model(X[:, 0:3, :, :], X[:, 3:6, :, :])
 
@@ -255,9 +262,9 @@ class GDNet_c(Profile):
         squeeze_mask, cost = self.squeeze_cost_grad(cost, disp.float())
         disp = self.disparity(cost)
 
-        mask = utils.y_mask(Y, self.max_disparity, dataset)
+        mask = utils.y_mask(Y, self.max_disparity, dataset_name)
         epe_loss = utils.EPE_loss(disp[mask], Y[mask])
-        error_sum = utils.error_rate(disp[mask], Y[mask], dataset)
+        error_sum = utils.error_rate(disp[mask], Y[mask], dataset_name)
 
         return {
             'error_sum': error_sum,
@@ -318,8 +325,80 @@ class GDNet_basic(GDNet_c):
 
         return train_dict
 
-    def eval(self, X, Y, dataset, merge_cost=True, lr_check=False, candidate=False, regression=True, penalize=False,
-             slope=1, max_disparity_diff=1.5, use_resize=False, use_dataset=None, use_padding_crop_size=False):
+    def eval(self, X, Y, pass_info, dataset_name, merge_cost=False, regression=False, use_resize=False, use_padding_crop_size=False):
+        assert not self.model.training
+        Y = Y[:, 0, :, :]
+
+        # Calculate cost
+        self.model.flip = False
+        cost_left = self.model(X[:, 0:3, :, :], X[:, 3:6, :, :])
+
+        cost_process_left = cost_left
+        if merge_cost:
+            self.model.flip = True
+            cost_right = self.model(X[:, 0:3, :, :], X[:, 3:6, :, :])
+            cost_process_right = cost_right
+
+        # Merge cost & Argmax disparity
+        if merge_cost:
+            cost_merge = cost_process_left.clone()
+            flip_cost = GDNet.function.FlipCost.apply(cost_process_right)
+            confidence_error = disparity_confidence_gpu(cost_left, flip_cost)
+            average_confidence_error = confidence_error[:, self.max_disparity:].mean()
+            cost_merge[..., self.max_disparity:] = (cost_merge[..., self.max_disparity:] + flip_cost[...,
+                                                                                           self.max_disparity:]) / 2
+            disp_max_left = torch.argmax(cost_merge, dim=1).float()
+
+        else:
+            cost_merge = None
+            flip_cost = None
+            confidence_error = None
+            average_confidence_error = None
+            disp_max_left = torch.argmax(cost_process_left, dim=1).float()
+
+        # Suppress Regression
+        if regression:
+            if merge_cost:
+                cost = F.softmax(cost_merge, dim=1)
+            else:
+                cost = F.softmax(cost_left, dim=1)
+            squeeze_mask, cost = self.squeeze_cost_grad(cost, disp_max_left)
+            disp_left = self.disparity(cost)
+
+        else:
+            disp_left = disp_max_left
+
+        # Evaluation
+        mask = utils.y_mask(Y, self.max_disparity, dataset_name)
+
+        if use_resize:
+            disp_left = disp_left[0].data.cpu().numpy()
+            disp_left = cv2.resize(disp_left, (pass_info['original_width'], pass_info['original_height']))
+            disp_left = torch.from_numpy(disp_left).unsqueeze(0).cuda()
+
+        elif use_padding_crop_size:
+            disp_left = disp_left[0].data.cpu().numpy()[:pass_info['original_height'], :pass_info['original_width']]
+            disp_left = torch.from_numpy(disp_left).unsqueeze(0).cuda()
+
+        epe_loss = utils.EPE_loss(disp_left[mask], Y[mask])
+        error_sum = utils.error_rate(disp_left[mask], Y[mask], dataset_name)
+
+        return {
+            'error_sum': error_sum,
+            'total_eval': mask.float().sum(),
+            'epe_loss': epe_loss,
+            'cost_left': cost_left,
+            'flip_cost': flip_cost,
+            'cost_merge': cost_merge,
+            'confidence_error': confidence_error,
+            'CE_avg': average_confidence_error,
+            'disp': disp_left.float(),
+        }
+
+    def eval_deprecated(self, X, Y, dataset, merge_cost=True, lr_check=False, candidate=False, regression=True,
+                        penalize=False,
+                        slope=1, max_disparity_diff=1.5, use_resize=False, use_dataset=None,
+                        use_padding_crop_size=False):
         assert not (merge_cost and lr_check), 'do not use merge cost and lr check at the same time'
         assert not (candidate and lr_check), 'do not use candidate error rate and lr check at the same time'
         assert not self.model.training
@@ -561,6 +640,17 @@ class GDNet_fdc6f(GDNet_flip_training):
         self.cost_count = 3
         return GDNet.GDNet_fdc6f.GDNet_fdc6f(max_disparity)
 
+class LEAStereo_fdc(GDNet_basic):
+    def get_model(self, max_disparity):
+        super().get_model(max_disparity)
+        self.cost_count = 1
+        return LEAStereo.LEAStereo.LEAStereo(max_disparity, 3)
+
+class LEAStereo_fdcf(GDNet_flip_training):
+    def get_model(self, max_disparity):
+        super().get_model(max_disparity)
+        self.cost_count = 1
+        return LEAStereo.LEAStereo_flip.LEAStereo_flip(max_disparity, 8)
 
 def penalize_cost_by_impossible(cost):
     impossible = torch.argmin(cost, dim=1).unsqueeze(1)

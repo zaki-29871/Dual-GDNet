@@ -56,14 +56,15 @@ Dual-GANet: 13 seconds per KITTI 2015 image with size 384, 1248
 
 The size of input images are required to be multiple for specific model.
 
-| Name        | Height | Width  | Max disparity |
-| ----------- | ------ | ------ | ------------- |
-| GDNet_sdc6  | mod 64 | mod 64 | mod 32        |
-| GDNet_sdc6f | mod 64 | mod 64 | mod 32        |
-| GDNet_mdc6  | mod 32 | mod 32 | mod 16        |
-| GDNet_mdc6f | mod 32 | mod 32 | mod 16        |
-| GDNet_fdc6  | mod 32 | mod 32 | mod 8         |
-| GDNet_fdc6f | mod 32 | mod 32 | mod 8         |
+| Name           | Height | Width  | Max disparity |
+| -------------- | ------ | ------ | ------------- |
+| GDNet_sdc6     | mod 64 | mod 64 | mod 32        |
+| GDNet_sdc6f    | mod 64 | mod 64 | mod 32        |
+| GDNet_mdc6     | mod 32 | mod 32 | mod 16        |
+| GDNet_mdc6f    | mod 32 | mod 32 | mod 16        |
+| GDNet_fdc6     | mod 32 | mod 32 | mod 8         |
+| GDNet_fdc6f    | mod 32 | mod 32 | mod 8         |
+| LEAStereo_fdcf | mod 24 | mod 24 | mod 8         |
 
 ### Evaluation
 | Name           | Height | Width | Max disparity |

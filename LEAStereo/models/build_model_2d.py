@@ -38,20 +38,15 @@ class DisparityRegression(nn.Module):
         return out
 
 
-class Disp(nn.Module):
-    def __init__(self, maxdisp=192, maxdisp_downsampleing=3):
-        super(Disp, self).__init__()
+class CostInterpolation(nn.Module):
+    def __init__(self, maxdisp):
+        super(CostInterpolation, self).__init__()
         self.maxdisp = maxdisp
-        self.softmax = nn.Softmin(dim=1)
-        self.disparity = DisparityRegression(maxdisp=self.maxdisp)
-        self.maxdisp_downsampleing = maxdisp_downsampleing
 
     def forward(self, x):
-        x = F.interpolate(x, [self.maxdisp, x.size()[3] * self.maxdisp_downsampleing,
-                              x.size()[4] * self.maxdisp_downsampleing], mode='trilinear', align_corners=False)
+        x = F.interpolate(x, [self.maxdisp, x.size()[3] * 3,
+                              x.size()[4] * 3], mode='trilinear', align_corners=False)
         x = torch.squeeze(x, 1)
-        x = self.softmax(x)
-        x = self.disparity(x)
         return x
 
 
