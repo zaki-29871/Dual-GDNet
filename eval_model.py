@@ -16,7 +16,7 @@ lr_check = False
 max_disparity_diff = 1.5
 merge_cost = True
 candidate = False
-plot_and_save_image = False
+plot_and_save_image = True
 
 # produce disparity methods
 use_crop_size = False
@@ -31,7 +31,7 @@ dataset = ['flyingthings3D', 'KITTI_2015', 'KITTI_2015_Augmentation', 'KITTI_201
 image = ['cleanpass', 'finalpass']  # for flyingthings3D
 
 used_profile = profile.GDNet_sdc6f()
-dataset = dataset[1]
+dataset = dataset[4]
 if dataset == 'flyingthings3D':
     image = image[1]
 
@@ -83,10 +83,6 @@ if use_crop_size:
     elif dataset == 'KITTI_2012_Augmentation':
         use_dataset = KITTI_2012_Augmentation(type='test', use_crop_size=True, crop_size=(height, width), seed=0)
         test_dataset = random_subset(use_dataset, 30, seed=seed)
-
-    elif dataset == 'KITTI_2015_benchmark':
-        use_dataset = KITTI_2015_benchmark(use_resize=True, resize=(height, width))
-        test_dataset = use_dataset
 
     elif dataset == 'AerialImagery':
         height, width = AerialImagery.image_size

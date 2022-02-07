@@ -29,6 +29,7 @@ class Profile:
         assert '-' not in str(self)
 
     def load_model(self, max_disparity, version=None):
+        # self.model = torch.nn.DataParallel(self.get_model(max_disparity)).cuda()
         self.model = self.get_model(max_disparity).cuda()
         self.max_disparity = max_disparity
 

@@ -108,7 +108,7 @@ class FlyingThings3D(Dataset):
             Y_list.append(Y.unsqueeze(0))
             Y = torch.cat(Y_list, dim=0)
 
-        return X.cuda(), Y.cuda()
+        return X, Y
 
     def __len__(self):
         return self.size
@@ -298,7 +298,7 @@ class KITTI_2015(Dataset):
 
                 Y = torch.ones((1, X.size(1), X.size(2)), dtype=torch.float)
 
-        return X.cuda(), Y.cuda()
+        return X, Y
 
     def get_root_directory(self):
         return f'F:\Dataset\KITTI 2015'
@@ -356,7 +356,7 @@ class KITTI_2015_benchmark(Dataset):
 
         Y = torch.ones((1, self.original_height, self.original_width), dtype=torch.float)
 
-        return X.cuda(), Y.cuda()
+        return X, Y
 
     def __len__(self):
         return 200
@@ -375,13 +375,13 @@ class KITTI_Augmentation(Dataset):
 
         if type == 'train':
             self.files = os.listdir(os.path.join(self.get_root_directory(), 'training', self.get_left_image_folder()))
-            self.train_indexes = np.arange(3840)
+            self.train_indexes = np.arange(self.get_train_size())
             np.random.seed(shuffle_seed)
             np.random.shuffle(self.train_indexes)
 
         elif type == 'test':
             self.files = os.listdir(os.path.join(self.get_root_directory(), 'testing', self.get_left_image_folder()))
-            self.test_indexes = np.arange(960)
+            self.test_indexes = np.arange(self.get_test_size())
             np.random.seed(shuffle_seed)
             np.random.shuffle(self.test_indexes)
 
@@ -546,7 +546,7 @@ class KITTI_Augmentation(Dataset):
                 Y = Y.unsqueeze(0)
                 X, Y = X.float() / 255, Y.float()
 
-        return X.cuda(), Y.cuda()
+        return X, Y
 
     def get_root_directory(self):
         return ''
@@ -560,8 +560,17 @@ class KITTI_Augmentation(Dataset):
     def get_disp_image_folder(self):
         return ''
 
-    def __len__(self):
+    def get_train_size(self):
         pass
+
+    def get_test_size(self):
+        pass
+
+    def __len__(self):
+        if self.type == 'train':
+            return self.get_train_size()
+        if self.type == 'test':
+            return self.get_test_size()
 
 
 class KITTI_2015_Augmentation(KITTI_Augmentation):
@@ -586,11 +595,11 @@ class KITTI_2015_Augmentation(KITTI_Augmentation):
     def get_disp_image_folder(self):
         return 'disp_occ_0'
 
-    def __len__(self):
-        if self.type == 'train':
-            return 3840
-        if self.type == 'test':
-            return 960
+    def get_train_size(self):
+        return 3840
+
+    def get_test_size(self):
+        return 960
 
 
 class KITTI_2012_Augmentation(KITTI_Augmentation):
@@ -616,11 +625,11 @@ class KITTI_2012_Augmentation(KITTI_Augmentation):
     def get_disp_image_folder(self):
         return 'disp_occ'
 
-    def __len__(self):
-        if self.type == 'train':
-            return 3720
-        if self.type == 'test':
-            return 936
+    def get_train_size(self):
+        return 3720
+
+    def get_test_size(self):
+        return 936
 
 
 class AerialImagery(Dataset):
@@ -664,7 +673,7 @@ class AerialImagery(Dataset):
 
         Y = torch.ones((1, X.size(1), X.size(2)), dtype=torch.float)
 
-        return X.cuda() / 255.0, Y.cuda()
+        return X / 255.0, Y
 
     def __len__(self):
         return len(self.rc)
