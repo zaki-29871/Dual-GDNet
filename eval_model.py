@@ -16,7 +16,7 @@ def main():
     max_disparity_diff = 1.5
     merge_cost = True
     candidate = False
-    plot_and_save_image = False
+    plot_and_save_image = True
 
     # produce disparity methods
     use_crop_size = False
@@ -29,12 +29,12 @@ def main():
     dataset_name = ['flyingthings3D', 'KITTI_2015', 'KITTI_2015_Augmentation', 'KITTI_2012_Augmentation',
                     'KITTI_2015_benchmark', 'AerialImagery'][4]
 
-    used_profile = profile.LEAStereo_fdcf()
+    used_profile = profile.GDNet_sdc6f()
     dataloader_kwargs = {'num_workers': 8, 'pin_memory': True, 'drop_last': True}
 
     model = used_profile.load_model(max_disparity, version)[1]
     version, loss_history = used_profile.load_history(version)
-    torch.backends.cudnn.benchmark = True
+    # torch.backends.cudnn.benchmark = True
 
     print('Using model:', used_profile)
     print('Using dataset:', dataset_name)
@@ -97,9 +97,9 @@ def main():
 
         elif dataset_name in ['KITTI_2015', 'KITTI_2015_benchmark', 'KITTI_2015_Augmentation', 'KITTI_2012_Augmentation']:
             # height, width = 352, 1216  # GDNet_mdc6f
-            # height, width = 384, 1280  # GDNet_sdc6f
+            height, width = 384, 1280  # GDNet_sdc6f
             # height, width = 336, 1200  # GDNet_dc6f
-            height, width = 384, 1272  # LEAStereo_fdcf
+            # height, width = 384, 1272  # LEAStereo_fdcf
 
         if dataset_name == 'flyingthings3D':
             use_dataset = FlyingThings3D(max_disparity, type='test', use_resize=True,
@@ -129,9 +129,9 @@ def main():
 
         elif dataset_name in ['KITTI_2015', 'KITTI_2015_benchmark', 'KITTI_2015_Augmentation', 'KITTI_2012_Augmentation']:
             # height, width = 352, 1216  # GDNet_mdc6f
-            # height, width = 384, 1280  # GDNet_sdc6f
+            height, width = 384, 1280  # GDNet_sdc6f
             # height, width = 336, 1200  # GDNet_dc6f
-            height, width = 384, 1272  # LEAStereo_fdcf
+            # height, width = 384, 1272  # LEAStereo_fdcf
 
         if dataset_name == 'flyingthings3D':
             use_dataset = FlyingThings3D(max_disparity, type='test', use_padding_crop_size=True,

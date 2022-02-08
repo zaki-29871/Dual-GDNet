@@ -22,7 +22,7 @@ def get_color(value):
 
 
 version = None
-trend_kernel = 10  # version (plot) + trend kernel = real model version, trend_kernel = [1, n]
+trend_kernel = 20  # version (plot) + trend kernel = real model version, trend_kernel = [1, n]
 trend_regression_size = 10  # to see the loss is decent or not, trend_regression_size = [1, n]
 trend_method = ['corr', 'regression'][1]
 epe = EPE_Loss()
