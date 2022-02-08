@@ -13,12 +13,11 @@ import datetime
 def main():
     version = None
     max_version = 2000  # KITTI 2015 v1497 recommended version
-    batch = 3
+    batch = 2
     seed = 0
-    loss_threshold = 10
     is_plot_image = False
     untexture_rate = 0
-    dataset_name = ['flyingthings3D', 'KITTI_2015', 'KITTI_2015_Augmentation', 'KITTI_2012_Augmentation'][3]
+    dataset_name = ['flyingthings3D', 'KITTI_2015', 'KITTI_2015_Augmentation', 'KITTI_2012_Augmentation'][0]
     exception_count = 0
     used_profile = profile.GDNet_sdc6f()
     dataloader_kwargs = {'num_workers': 8, 'pin_memory': True, 'drop_last': True}
@@ -29,6 +28,10 @@ def main():
         # max_disparity = 192
 
         # v655 start
+        height, width = 128, 384  # 384 - 128 = 256
+        max_disparity = 128
+
+    elif isinstance(used_profile, profile.GDNet_sd9c6f):
         height, width = 128, 384  # 384 - 128 = 256
         max_disparity = 128
 

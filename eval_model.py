@@ -12,10 +12,7 @@ def main():
     # max_disparity = 160  # flyingthings3D
     version = None
     seed = 0
-    lr_check = False
-    max_disparity_diff = 1.5
     merge_cost = True
-    candidate = False
     plot_and_save_image = True
 
     # produce disparity methods

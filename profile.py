@@ -10,6 +10,8 @@ import GDNet.GDNet_dc6
 import GDNet.GDNet_dc6f
 import GDNet.GDNet_sdc6
 import GDNet.GDNet_sdc6f
+import GDNet.GDNet_sd9c6
+import GDNet.GDNet_sd9c6f
 import GDNet.GDNet_fdc6
 import GDNet.GDNet_fdc6f
 import LEAStereo.LEAStereo
@@ -598,6 +600,17 @@ class GDNet_sdc6f(GDNet_flip_training):
         self.cost_count = 5
         return GDNet.GDNet_sdc6f.GDNet_sdc6f(max_disparity)
 
+class GDNet_sd9c6(GDNet_basic):
+    def get_model(self, max_disparity):
+        super().get_model(max_disparity)
+        self.cost_count = 3
+        return GDNet.GDNet_sd9c6.GDNet_sd9c6(max_disparity)
+
+class GDNet_sd9c6f(GDNet_flip_training):
+    def get_model(self, max_disparity):
+        super().get_model(max_disparity)
+        self.cost_count = 3
+        return GDNet.GDNet_sd9c6f.GDNet_sd9c6f(max_disparity)
 
 class GDNet_mdc6(GDNet_basic):
     def get_model(self, max_disparity):
