@@ -13,11 +13,12 @@ import datetime
 def main():
     version = None
     max_version = 2000  # KITTI 2015 v1497 recommended version
-    batch = 2
+    batch = 3
     seed = 0
     is_plot_image = False
+    is_debug = False
     untexture_rate = 0
-    dataset_name = ['flyingthings3D', 'KITTI_2015', 'KITTI_2015_Augmentation', 'KITTI_2012_Augmentation'][0]
+    dataset_name = ['flyingthings3D', 'KITTI_2015', 'KITTI_2015_Augmentation', 'KITTI_2012_Augmentation'][2]
     exception_count = 0
     used_profile = profile.GDNet_sdc6f()
     dataloader_kwargs = {'num_workers': 8, 'pin_memory': True, 'drop_last': True}
@@ -31,7 +32,7 @@ def main():
         height, width = 128, 384  # 384 - 128 = 256
         max_disparity = 128
 
-    elif isinstance(used_profile, profile.GDNet_sd9c6f):
+    elif isinstance(used_profile, (profile.GDNet_sd9c6, profile.GDNet_sd9c6f)):
         height, width = 128, 384  # 384 - 128 = 256
         max_disparity = 128
 
@@ -46,6 +47,11 @@ def main():
     elif isinstance(used_profile, profile.LEAStereo_fdcf):
         height, width = 240, 576  # 576 - 150 = 426
         max_disparity = 150
+
+    elif isinstance(used_profile, profile.GDNet_sd9d6):
+        height, width = 128, 384  # 384 - 128 = 256
+        max_disparity = 128
+
 
     model = used_profile.load_model(max_disparity, version)[1]
     version, loss_history = used_profile.load_history(version)
@@ -174,8 +180,6 @@ def main():
                                                  max_disparity=max_disparity)
 
                 if torch.isnan(loss):
-                    # print('detect loss nan in training')
-                    # exit(0)
                     raise Exception('detect loss nan in training')
 
             train_loss = float(torch.tensor(train_loss).mean())
@@ -207,8 +211,6 @@ def main():
                                                      max_disparity=max_disparity)
 
                     if torch.isnan(eval_dict["epe_loss"]):
-                        # print('detect loss nan in testing')
-                        # exit(0)
                         raise Exception('detect loss nan in testing')
 
             test_loss = float(torch.tensor(test_loss).mean())
@@ -233,7 +235,8 @@ def main():
             v -= 1
             # if exception_count >= 50:
             #     exit(-1)
-            exit(-1)
+            if is_debug:
+                exit(-1)
 
 
 if __name__ == '__main__':

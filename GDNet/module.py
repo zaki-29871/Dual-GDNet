@@ -68,12 +68,12 @@ class DisparityRegression(nn.Module):
             disp = np.arange(self.maxdisp).reshape([1, self.maxdisp, 1, 1])
             disp = torch.tensor(disp, requires_grad=False).to(x.device).float()
             disp = disp.repeat(x.size(0), 1, x.size(2), x.size(3))
-            x = torch.sum(x * disp, dim=1)
-        return x
+            disp = torch.sum(x * disp, dim=1)
+        return disp
 
-class DisparityClassRegression(nn.Module):
+class DisparityClassRegressionLoss(nn.Module):
     def __init__(self, maxdisp):
-        super(DisparityClassRegression, self).__init__()
+        super(DisparityClassRegressionLoss, self).__init__()
         self.maxdisp = maxdisp
 
     def forward(self, x, y):

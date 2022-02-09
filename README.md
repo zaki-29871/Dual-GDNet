@@ -65,6 +65,7 @@ The size of input images are required to be multiple for specific model.
 | GDNet_fdc6     | mod 32 | mod 32 | mod 8         |
 | GDNet_fdc6f    | mod 32 | mod 32 | mod 8         |
 | LEAStereo_fdcf | mod 24 | mod 24 | mod 8         |
+| GDNet_sd9d6    | mod 64 | mod 64 | mod 32        |
 
 ### Evaluation
 | Name           | Height | Width | Max disparity |

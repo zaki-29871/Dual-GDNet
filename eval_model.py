@@ -13,7 +13,7 @@ def main():
     version = None
     seed = 0
     merge_cost = True
-    plot_and_save_image = True
+    plot_and_save_image = False
 
     # produce disparity methods
     use_crop_size = False
@@ -24,7 +24,7 @@ def main():
         raise Exception('Using only one image regeneration method')
 
     dataset_name = ['flyingthings3D', 'KITTI_2015', 'KITTI_2015_Augmentation', 'KITTI_2012_Augmentation',
-                    'KITTI_2015_benchmark', 'AerialImagery'][4]
+                    'KITTI_2015_benchmark', 'AerialImagery'][0]
 
     used_profile = profile.GDNet_sdc6f()
     dataloader_kwargs = {'num_workers': 8, 'pin_memory': True, 'drop_last': True}
@@ -167,9 +167,14 @@ def main():
         with torch.no_grad():
             utils.tic()
 
-            eval_dict = used_profile.eval(X, Y, pass_info, dataset_name, use_resize=use_resize,
-                                          use_padding_crop_size=use_padding_crop_size,
-                                          merge_cost=merge_cost, regression=True)
+            if isinstance(used_profile, profile.GDNet_class_regression_basic):
+                eval_dict = used_profile.eval(X, Y, pass_info, dataset_name, use_resize=use_resize,
+                                              use_padding_crop_size=use_padding_crop_size,
+                                              merge_cost=merge_cost, regression=True)
+
+            elif isinstance(used_profile, profile.GDNet_disparity_regression_basic):
+                eval_dict = used_profile.eval(X, Y, pass_info, dataset_name, use_resize=use_resize,
+                                              use_padding_crop_size=use_padding_crop_size)
 
             time = utils.timespan_str(utils.toc(True))
             loss_str = f'loss = {utils.threshold_color(eval_dict["epe_loss"])}{eval_dict["epe_loss"]:.3f}{Style.RESET_ALL}'
@@ -180,7 +185,7 @@ def main():
             error.append(float(eval_dict["error_sum"]))
             total_eval.append(float(eval_dict["total_eval"]))
 
-            if merge_cost:
+            if isinstance(used_profile, profile.GDNet_class_regression_basic):
                 confidence_error.append(float(eval_dict["CE_avg"]))
 
             if torch.isnan(eval_dict["epe_loss"]):
@@ -202,7 +207,7 @@ def main():
     print(f'avg loss = {np.array(losses).mean():.3f}')
     print(f'std loss = {np.array(losses).std():.3f}')
     print(f'avg error rates = {np.array(error).sum() / np.array(total_eval).sum():.2%}')
-    if merge_cost:
+    if isinstance(used_profile, profile.GDNet_class_regression_basic):
         print(f'avg confidence error = {np.array(confidence_error).mean():.3f}')
     print('Number of test case:', len(losses))
     print('Excel format:')
