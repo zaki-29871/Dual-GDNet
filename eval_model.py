@@ -4,18 +4,18 @@ import numpy as np
 from profile import *
 from colorama import Style
 import profile
+import utils.cost_volume as cv
 
 def main():
     # GTX 1660 TiTi
-    max_disparity = 192  # KITTI 2015
-    # max_disparity = 144  # flyingthings3D
-    # max_disparity = 160  # flyingthings3D
+    # max_disparity = 192  # KITTI 2015
+    max_disparity = 160  # flyingthings3D
     version = None
     seed = 0
     merge_cost = True
     plot_and_save_image = False
-
-    # produce disparity methods
+    plot_and_show_image = True
+    plot_threshold = 0.015
     use_crop_size = False
     use_resize = False
     use_padding_crop_size = True
@@ -24,10 +24,10 @@ def main():
         raise Exception('Using only one image regeneration method')
 
     dataset_name = ['flyingthings3D', 'KITTI_2015', 'KITTI_2015_Augmentation', 'KITTI_2012_Augmentation',
-                    'KITTI_2015_benchmark', 'AerialImagery'][0]
+                    'KITTI_2015_benchmark', 'AerialImagery'][4]
 
     used_profile = profile.GDNet_sdc6f()
-    dataloader_kwargs = {'num_workers': 8, 'pin_memory': True, 'drop_last': True}
+    dataloader_kwargs = {'num_workers': 0, 'pin_memory': True, 'drop_last': True}
 
     model = used_profile.load_model(max_disparity, version)[1]
     version, loss_history = used_profile.load_history(version)
@@ -194,13 +194,34 @@ def main():
 
             if plot_and_save_image:
                 plotter = utils.CostPlotter()
-
-                plotter.plot_image_disparity(X[0], Y[0, 0], use_dataset, eval_dict,
+                plotter.plot_image_disparity(X[0], Y[0, 0], dataset_name, eval_dict,
                                              max_disparity=max_disparity, use_resize=use_resize,
-                                             original_width_height=(
-                                                 pass_info['original_width'], pass_info['original_height']),
-                                             save_result_file=(f'{used_profile}/{use_dataset}', batch_index, False,
+                                             use_padding_crop_size=use_padding_crop_size, pass_info=pass_info,
+                                             save_result_file=(f'{used_profile}/{dataset_name}', batch_index, False,
                                                                error_rate_str))
+
+            if plot_and_show_image and eval_dict["error_sum"] / eval_dict["total_eval"] > plot_threshold:
+                plotter = utils.CostPlotter()
+                cost_volume_data = []
+                if eval_dict["cost_left"] is not None:
+                    cv_data = cv.CostVolumeData(str(used_profile), - eval_dict["cost_left"])
+                    cv_data.line_style = '-'
+                    cost_volume_data.append(cv_data)
+
+                if eval_dict["flip_cost"] is not None:
+                    cv_data = cv.CostVolumeData(str(used_profile) + ' Flipped', - eval_dict["flip_cost"])
+                    cv_data.line_style = '-'
+                    cost_volume_data.append(cv_data)
+
+                if eval_dict["cost_merge"] is not None:
+                    cv_data = cv.CostVolumeData(str(used_profile) + ' Merged', - eval_dict["cost_merge"],
+                                                eval_dict["disp"])
+                    cv_data.line_style = '-'
+                    cost_volume_data.append(cv_data)
+                plotter.cost_volume_data = cost_volume_data
+                plotter.plot_image_disparity(X[0], Y[0, 0], dataset_name, eval_dict,
+                                             max_disparity=max_disparity, use_resize=use_resize,
+                                             use_padding_crop_size=use_padding_crop_size, pass_info=pass_info)
             # exit(0)
             # os.system('nvidia-smi')
 

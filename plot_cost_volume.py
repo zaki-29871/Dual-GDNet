@@ -1,5 +1,5 @@
 import torch
-from dataset import FlyingThings3D, random_subset, random_split, KITTI_2015, AerialImagery
+from dataset.dataset import FlyingThings3D, random_subset, random_split, KITTI_2015, AerialImagery
 from torch.utils.data import DataLoader
 import utils
 import numpy as np

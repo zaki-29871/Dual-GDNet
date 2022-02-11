@@ -162,16 +162,18 @@ class CostPlotter:
         self.title_position = [0.5, 1.025]
         os.makedirs(self.RESULT_ROOT, exist_ok=True)
         self.save_detail = None
-        self.marker_size = 15
+        self.marker_size = 10
 
-    def plot_image_disparity(self, X, Y, dataset, eval_dict, max_disparity=192, padding=30, save_file=None,
-                             save_result_file=None, error_map=True, is_benchmark=False, use_resize=None,
-                             original_width_height=None):
+    def plot_image_disparity(self, X, Y, dataset_name, eval_dict, max_disparity=192, padding=30, save_file=None,
+                             save_result_file=None, error_map=True, is_benchmark=False, use_resize=False,
+                             use_padding_crop_size=False, pass_info=None):
         self.max_disparity = max_disparity
         self.padding = padding
         self.confidence_error = None
+        self.candidate_error = None
         self.predict = None
         self.error_map = None
+        self.dataset_name = dataset_name
 
         if isinstance(X, torch.Tensor):
             assert X.dim() == 3 and Y.dim() == 2
@@ -186,12 +188,19 @@ class CostPlotter:
             Y = Y.data.cpu().numpy()
 
             if use_resize:
-                X = cv2.resize(X, original_width_height)
-                Y = cv2.resize(Y, original_width_height)
-                self.predict = cv2.resize(self.predict, original_width_height)
+                X = cv2.resize(X, (pass_info['original_width'], pass_info['original_height']))
+                Y = cv2.resize(Y, (pass_info['original_width'], pass_info['original_height']))
+                self.predict = cv2.resize(self.predict, (pass_info['original_width'], pass_info['original_height']))
+            elif use_padding_crop_size:
+                X = X[:pass_info['original_height'], :pass_info['original_width']]
+                Y = Y[:pass_info['original_height'], :pass_info['original_width']]
 
             if 'confidence_error' in eval_dict.keys() and eval_dict["confidence_error"] is not None:
                 self.confidence_error = eval_dict["confidence_error"][0].data.cpu().numpy()
+            if 'confidence_error_cost' in eval_dict.keys() and eval_dict["confidence_error_cost"] is not None:
+                self.confidence_error_cost = eval_dict["confidence_error_cost"][0].data.cpu().numpy()
+            if 'candidate_error' in eval_dict.keys() and eval_dict["candidate_error"] is not None:
+                self.candidate_error = eval_dict["candidate_error"][0].data.cpu().numpy()
 
         elif isinstance(X, np.ndarray):
             assert X.ndim == 3 and Y.ndim == 2
@@ -204,7 +213,7 @@ class CostPlotter:
             raise Exception('cannot find data type')
 
         if self.predict is not None and not is_benchmark:
-            mask = y_mask(Y, self.max_disparity, dataset) & (self.predict != -1)
+            mask = y_mask(Y, self.max_disparity, dataset_name) & (self.predict != -1)
             self.error_map = np.zeros(Y.shape, dtype=np.float)
             self.error_map[mask] = np.abs(self.predict[mask] - Y[mask])
 
@@ -213,18 +222,20 @@ class CostPlotter:
         self.eval_dict = eval_dict
 
         self.fig = plt.figure(figsize=(16, 10))
-        self.fig.patch.set_alpha(0)
+        self.fig.patch.set_alpha(0)  # Setting the backbround color to opacity 0
         self.fig.canvas.mpl_connect('button_press_event', self.main_onclick)
 
-        plt.subplot(321)
+        plt.subplot(421)
         plt.title('Left Image')
         plt.imshow(X[:, :, 0:3])
+        plt.axis('off')
 
-        plt.subplot(322)
+        plt.subplot(422)
         plt.title('Right Image')
         plt.imshow(X[:, :, 3:6])
+        plt.axis('off')
 
-        if dataset == 'AerialImagery':
+        if dataset_name == 'AerialImagery':
             self.vmin = 0
             self.vmax = 123
         else:
@@ -235,24 +246,34 @@ class CostPlotter:
                 self.vmin = 0
                 self.vmax = 80
 
-        plt.subplot(323)
+        plt.subplot(423)
         plt.title('Ground Truth Disparity')
         plt.imshow(Y, vmin=self.vmin, vmax=self.vmax, cmap='jet')
+        plt.axis('off')
 
         if self.predict is not None:
-            plt.subplot(324)
+            plt.subplot(424)
             plt.title(f'Predict Disparity, EPE = {self.eval_dict["epe_loss"]:.3f}')
             plt.imshow(self.predict, vmin=self.vmin, vmax=self.vmax, cmap='jet')
+            plt.axis('off')
 
         if self.error_map is not None and not is_benchmark:
-            plt.subplot(325)
+            plt.subplot(425)
             plt.title('Error Map')
             plt.imshow(self.error_map, cmap='jet')
+            plt.axis('off')
 
         if self.confidence_error is not None:
-            plt.subplot(326)
+            plt.subplot(426)
             plt.title(f'Confidence Error (avg={eval_dict["CE_avg"]:.3f})')
             plt.imshow(self.confidence_error, cmap='jet')
+            plt.axis('off')
+
+        if self.candidate_error is not None:
+            plt.subplot(427)
+            plt.title(f'Candidate Error')
+            plt.imshow(self.candidate_error, cmap='jet')
+            plt.axis('off')
 
         if save_file is not None:
             plt.savefig(save_file, box_inches='tight')
@@ -280,17 +301,9 @@ class CostPlotter:
                 plt.imsave(os.path.join(self.RESULT_ROOT, subfoler, 'predict', f'{batch_index}.png'),
                            self.predict, vmin=self.vmin, vmax=self.vmax, cmap='jet')
 
-            img = self.predict  # <class 'numpy.ndarray'>
-            # print(img[250:280, 250:280].reshape(-1))
-            # print(img.reshape(-1).max())
-            # print(img.reshape(-1).min())
+            img = self.predict  # <class 'numpy.ndarray'>, shape: (375, 1242), dtype: float32
             save_path = os.path.join(self.RESULT_ROOT, subfoler, 'disp_0', f'{batch_index:06d}_10.png')
-            # print(img.shape)  # (375, 1242)
-            # print(img.dtype)  # float32
-            # cv2.imwrite(save_path, np.round(img*0x100).astype('uint16'))
             cv2.imwrite(save_path, (img * 0x100).astype('uint16'))
-            # imageio.imwrite(save_path, img.astype('float16'))
-            # numpngw.write_png(save_path, img, bitdepth=16)
             if error_map and not is_benchmark:
                 plt.imsave(os.path.join(self.RESULT_ROOT, subfoler, 'error_map', f'{batch_index}_{error_rate_str}.png'),
                            self.error_map, vmin=self.vmin, vmax=self.vmax, cmap='jet')
@@ -301,7 +314,10 @@ class CostPlotter:
         plt.close(self.fig)
 
     def main_onclick(self, event):
-        r, c = int(event.ydata), int(event.xdata)
+        if isinstance(event.ydata, float) and isinstance(event.xdata, float):
+            r, c = round(event.ydata), round(event.xdata)
+        else:
+            return
 
         if self.save_detail is not None:
             r, c = self.save_detail['pixel']
@@ -311,14 +327,18 @@ class CostPlotter:
 
         for ax in self.fig.axes:
             ax.remove()
-        self.fig.subplots(4, 2)
+        self.fig.subplots(3, 3)
 
         ax = self.fig.axes[0]
         ax.set_title('Left Image', fontsize=self.image_font_size[0])
         ax.title.set_position(self.title_position)
-        ax.set_xticks([])
-        ax.set_yticks([])
-        # ax.axis('off')
+        ax.axis('off')
+
+        # Another method for ax.axis('off')
+        # ax.set_xticks([])
+        # ax.set_yticks([])
+
+        # Change axis's font size
         # ax.tick_params(axis='x', labelsize=self.image_font_size[1])
         # ax.tick_params(axis='y', labelsize=self.image_font_size[1])
         ax.imshow(self.X[:, :, 0:3])
@@ -327,8 +347,7 @@ class CostPlotter:
         ax = self.fig.axes[1]
         ax.set_title('Right Image', fontsize=self.image_font_size[0])
         ax.title.set_position(self.title_position)
-        ax.set_xticks([])
-        ax.set_yticks([])
+        ax.axis('off')
         ax.imshow(self.X[:, :, 3:6])
         col_range = (c - self.max_disparity, c)
         row_range = (r, r)
@@ -337,7 +356,7 @@ class CostPlotter:
         ylim = (row_range[0] + self.padding, row_range[1] - self.padding)
 
         d = self.predict[r, c]
-        # ax.plot(c - d, r, color='blue', marker='.', markersize=self.marker_size)
+        ax.plot(c - d, r, color='blue', marker='.', markersize=self.marker_size)
 
         yd = self.Y[r, c]
         ax.plot(c - yd, r, color='red', marker='.', markersize=self.marker_size)
@@ -345,8 +364,7 @@ class CostPlotter:
         ax = self.fig.axes[2]
         ax.set_title('Left Zoom Image', fontsize=self.image_font_size[0])
         ax.title.set_position(self.title_position)
-        ax.set_xticks([])
-        ax.set_yticks([])
+        ax.axis('off')
         ax.imshow(self.X[:, :, 0:3])
         ax.plot(c, r, color='red', marker='.', markersize=self.marker_size)
         ax.set_xlim(*xlim)
@@ -355,15 +373,14 @@ class CostPlotter:
         ax = self.fig.axes[3]
         ax.set_title('Right Zoom Image', fontsize=self.image_font_size[0])
         ax.title.set_position(self.title_position)
-        ax.set_xticks([])
-        ax.set_yticks([])
+        ax.axis('off')
         ax.imshow(self.X[:, :, 3:6])
         ax.plot(col_range, row_range, '--', color='#f2711c', linewidth=3)
         ax.set_xlim(*xlim)
         ax.set_ylim(*ylim)
 
         d = self.predict[r, c]
-        # ax.plot(c - d, r, color='blue', marker='.', markersize=self.marker_size)
+        ax.plot(c - d, r, color='blue', marker='.', markersize=self.marker_size)
 
         yd = self.Y[r, c]
         ax.plot(c - yd, r, color='red', marker='.', markersize=self.marker_size)
@@ -371,21 +388,31 @@ class CostPlotter:
         ax = self.fig.axes[4]
         ax.set_title(f'Ground Truth Disparity {self.Y[r, c]:.2f}', fontsize=self.image_font_size[0])
         ax.title.set_position(self.title_position)
+        if 'KITTI' in self.dataset_name:
+            self.Y[(self.Y == 0) | (self.error_map < 3)] = 0
         ax.imshow(self.Y, vmin=self.vmin, vmax=self.vmax, cmap='jet')
         ax.axis('off')
         ax.plot(c, r, color='red', marker='.', markersize=self.marker_size)
+        ax.set_xlim(*xlim)
+        ax.set_ylim(*ylim)
+        # ax.set_xlim(c - 5, c + 5)  # height = 2 * padding
+        # ax.set_ylim(r + 5, r - 5)  # width = 2 * padding
 
         if self.predict is not None:
             ax = self.fig.axes[5]
-            ax.set_title(f'Predict Disparity {self.predict[r, c]:.2f} (avg EPE = {self.eval_dict["epe_loss"]:.3f})',
+            ax.set_title(f'Predict Disparity {self.predict[r, c]:.2f}\n(avg EPE = {self.eval_dict["epe_loss"]:.3f})',
                          fontsize=self.image_font_size[0])
             ax.title.set_position(self.title_position)
             ax.imshow(self.predict, vmin=self.vmin, vmax=self.vmax, cmap='jet')
             ax.axis('off')
             ax.plot(c, r, color='red', marker='.', markersize=self.marker_size)
+            ax.set_xlim(*xlim)
+            ax.set_ylim(*ylim)
 
         if self.error_map is not None:
             ax = self.fig.axes[6]
+            if 'KITTI' in self.dataset_name:
+                self.error_map[(self.Y == 0) | (self.error_map < 3)] = 0
             ax.set_title(f'Error Map {self.error_map[r, c]:.3f}', fontsize=self.image_font_size[0])
             ax.title.set_position(self.title_position)
             ax.imshow(self.error_map, cmap='jet')
@@ -395,12 +422,26 @@ class CostPlotter:
         if self.confidence_error is not None:
             ax = self.fig.axes[7]
             ax.set_title(
-                f'Confidence Error {self.confidence_error[r, c]:.2f} (avg CE = {self.eval_dict["CE_avg"]:.3f})',
+                f'Confidence Error {self.confidence_error[r, c]:.2f}\n(avg CE = {self.eval_dict["CE_avg"]:.3f})',
                 fontsize=self.image_font_size[0])
             ax.title.set_position(self.title_position)
             ax.imshow(self.confidence_error, cmap='jet')
             ax.axis('off')
             ax.plot(c, r, color='red', marker='.', markersize=self.marker_size)
+
+        if self.candidate_error is not None:
+            ax = self.fig.axes[8]
+            ax.set_title(f'Candidate Error {self.candidate_error[r, c]:.2f}', fontsize=self.image_font_size[0])
+            ax.title.set_position(self.title_position)
+            ax.imshow(self.candidate_error, cmap='jet')
+            ax.axis('off')
+            ax.plot(c, r, color='red', marker='.', markersize=self.marker_size)
+
+        # Templerary
+        # ax = self.fig.axes[9]
+        # ax.imshow(np.zeros(self.candidate_error.shape), cmap='jet')
+        # ax.axis('off')
+        # ax.plot(c, r, color='red', marker='.', markersize=self.marker_size)
 
         self.fig.tight_layout()
         self.fig.canvas.draw_idle()
@@ -421,7 +462,7 @@ class CostPlotter:
         self.plot_cost_volume(r, c)
 
     def plot_cost_volume(self, r, c, save_file=None):
-        print(f'r = {r}, c = {c}, fc = {self.Y.shape[1] - c - 1 + self.Y[r, c]:.2f}')
+        print(f'click: row = {r}, column = {c}')
 
         if self.cost_volume_fig is None:
             self.cost_volume_fig = plt.figure(figsize=(19.2, 12))
@@ -433,8 +474,8 @@ class CostPlotter:
 
         self.cost_volume_fig.subplots(1)
         ax = self.cost_volume_fig.axes[0]
-        ax.axvline(self.Y[r, c], color='k', linestyle='', marker='d', clip_on=False, markersize=20,
-                   label=f'Ground Truth Disparity ({self.Y[r, c]:.2f})')
+        ax.axvline(self.Y[r, c], color='k', linestyle='', marker='d', clip_on=False, markersize=self.marker_size,
+                   label=f'Ground Truth Disparity ({self.Y[r, c]:.2f}, {self.confidence_error[r, c]:.2f})')
 
         for cv_data in self.cost_volume_data:
             p = ax.plot(cv_data.cost[:, r, c],
@@ -447,7 +488,8 @@ class CostPlotter:
             if cv_data.disp is not None:
                 # p[0].get_color()
                 ax.axvline(cv_data.disp[r, c], color='k', linestyle='--', clip_on=False,
-                           linewidth=5, label=f'Predicted Disparity ({cv_data.disp[r, c]:.2f})')
+                           linewidth=5, label=f'Predicted Disparity ({cv_data.disp[r, c]:.2f}, '
+                                              f'{self.confidence_error[r, c]:.2f})')
 
         ax.set_xlabel('Disparity', fontsize=self.cv_font_size[0])
         ax.set_ylabel('Cost', fontsize=self.cv_font_size[0])
@@ -468,7 +510,7 @@ class CostPlotter:
             plt.savefig(save_file, box_inches='tight')
 
     def cost_volume_onclick(self, event):
-        d = int(event.xdata)
+        d = round(event.xdata)
 
         if self.check_line is not None:
             self.check_line['main'][0].remove()
@@ -481,7 +523,8 @@ class CostPlotter:
                                           markersize=self.marker_size, linewidth=5)
 
         ax = self.cost_volume_fig.axes[0]
-        self.check_line['cost_volume'] = ax.axvline(d, color='#21ba45', linestyle='-', label=f'check disp ({d:.2f})')
+        self.check_line['cost_volume'] = ax.axvline(d, color='#21ba45', linestyle='-', label=f'check disp ({d:.2f}, '
+                                                                                             f'{self.confidence_error_cost[d, self.r, self.c]:.2f})')
         ax.legend()
 
         self.fig.canvas.draw_idle()
@@ -577,34 +620,34 @@ def EPE_loss(input, target):
     return (input - target).abs().mean()
 
 
-def error_rate(input, target, dataset):
-    if dataset == 'flyingthings3D':
+def error_rate(input, target, dataset_name):
+    if dataset_name == 'flyingthings3D':
         error_mask = (input - target).abs() >= 1
         return error_mask.float().sum()
 
-    elif dataset in ['KITTI_2015', 'KITTI_2015_benchmark', 'KITTI_2015_Augmentation', 'KITTI_2012_Augmentation']:
+    elif dataset_name in ['KITTI_2015', 'KITTI_2015_benchmark', 'KITTI_2015_Augmentation', 'KITTI_2012_Augmentation']:
         l1 = (input - target).abs()
         error_mask = l1 >= 3
         error_mask &= (l1 / target.abs()) >= 0.05
         return error_mask.float().sum()
 
-    elif dataset == 'AerialImagery':
+    elif dataset_name == 'AerialImagery':
         error_mask = (input - target).abs() >= 1
         return error_mask.float().sum()
 
     else:
-        raise Exception('Unknown dataset: ' + dataset)
+        raise Exception('Unknown dataset: ' + dataset_name)
 
 
-def error_rate_candidate(input, target, dataset, mask):
+def error_rate_candidate(input, target, dataset_name, mask):
     target = target[mask]
-    if dataset == 'flyingthings3D':
+    if dataset_name == 'flyingthings3D':
         error_mask = torch.ones(target.size(), dtype=torch.bool).to(input.device)
         for i in range(input.size(1)):
             error_mask &= (input[:, i][mask] - target).abs() >= 1
         return error_mask.float().sum()
 
-    elif dataset == 'KITTI_2015':
+    elif dataset_name == 'KITTI_2015':
         error_mask = torch.ones(target.size(), dtype=torch.bool).to(input.device)
         for i in range(input.size(1)):
             l1 = (input[:, i][mask] - target).abs()
@@ -632,9 +675,9 @@ def threshold_color(loss):
         return Fore.GREEN
 
 
-def y_mask(Y, max_disparity, dataset):
-    mask = (Y < max_disparity - 1)
-    if dataset in ['KITTI_2015', 'KITTI_2015', 'KITTI_2015_Augmentation', 'KITTI_2012_Augmentation']:
+def y_mask(Y, max_disparity, dataset_name):
+    mask = (Y < max_disparity - 1) & (Y != 0)
+    if 'KITTI' in dataset_name:
         mask = mask & (Y != 0)
     return mask
 

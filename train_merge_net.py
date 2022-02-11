@@ -8,23 +8,25 @@ import os
 import utils
 import traceback
 import datetime
+import torch.nn.functional as F
 
 
 def main():
     version = None
-    max_version = 2000  # KITTI 2015 v1497 recommended version
-    batch = 3
+    cv_model = None
+    max_version = 2000
+    batch = 1
     seed = 0
     is_plot_image = False
     is_debug = False
-    untexture_rate = 0
-    dataset_name = ['flyingthings3D', 'KITTI_2015', 'KITTI_2015_Augmentation', 'KITTI_2012_Augmentation'][2]
+    dataset_name = ['flyingthings3D', 'KITTI_2015', 'KITTI_2015_Augmentation', 'KITTI_2012_Augmentation'][0]
     exception_count = 0
-    used_profile = profile.GDNet_sdc6f()
+    used_cv_profile = profile.GDNet_sdc6f()
+    used_disp_profile = profile.MergeNet_d()
     dataloader_kwargs = {'num_workers': 8, 'pin_memory': True, 'drop_last': True}
 
     # GTX 1660 Ti
-    if isinstance(used_profile, profile.GDNet_sdc6f):
+    if isinstance(used_cv_profile, profile.GDNet_sdc6f):
         # height, width = 192, 576  # 576 - 192 = 384
         # max_disparity = 192
 
@@ -32,39 +34,41 @@ def main():
         height, width = 128, 384  # 384 - 128 = 256
         max_disparity = 128
 
-    elif isinstance(used_profile, (profile.GDNet_sd9c6, profile.GDNet_sd9c6f)):
+    elif isinstance(used_cv_profile, (profile.GDNet_sd9c6, profile.GDNet_sd9c6f)):
         height, width = 128, 384  # 384 - 128 = 256
         max_disparity = 128
 
-    elif isinstance(used_profile, profile.GDNet_mdc6f):
+    elif isinstance(used_cv_profile, profile.GDNet_mdc6f):
         height, width = 192, 576  # 576 - 144 = 432
         max_disparity = 144
 
-    elif isinstance(used_profile, profile.GDNet_fdc6f):
+    elif isinstance(used_cv_profile, profile.GDNet_fdc6f):
         height, width = 96, 320  # 320 - 128 = 192
         max_disparity = 128
 
-    elif isinstance(used_profile, profile.LEAStereo_fdcf):
+    elif isinstance(used_cv_profile, profile.LEAStereo_fdcf):
         height, width = 240, 576  # 576 - 150 = 426
         max_disparity = 150
 
-    elif isinstance(used_profile, profile.GDNet_sd9d6):
+    elif isinstance(used_cv_profile, profile.GDNet_sd9d6):
         height, width = 128, 448  # 448 - 160 = 288
         max_disparity = 160
 
-    model = used_profile.load_model(max_disparity, version)[1]
-    version, loss_history = used_profile.load_history(version)
+
+    cv_model = used_cv_profile.load_model(max_disparity, cv_model)[1]
+    disp_model = used_disp_profile.load_model(max_disparity, version)[1]
+    version, loss_history = used_disp_profile.load_history(version)
     torch.backends.cudnn.benchmark = True
 
     print(f'CUDA abailable cores: {torch.cuda.device_count()}')
     print(f'Batch: {batch}')
-    print('Using model:', used_profile)
+    print('Using model:', used_disp_profile)
     print('Using dataset:', dataset_name)
     print('Image size:', (height, width))
     print('Max disparity:', max_disparity)
-    print('Number of parameters: {:,}'.format(sum(p.numel() for p in model.parameters())))
+    print('Number of parameters: {:,}'.format(sum(p.numel() for p in disp_model.parameters())))
 
-    optimizer = optim.Adam(model.parameters(), lr=0.001, betas=(0.9, 0.999))
+    optimizer = optim.Adam(disp_model.parameters(), lr=0.001, betas=(0.9, 0.999))
 
     if dataset_name == 'flyingthings3D':
         train_dataset = FlyingThings3D(max_disparity, type='train', use_crop_size=True, crop_size=(height, width),
@@ -74,8 +78,7 @@ def main():
 
     elif dataset_name == 'KITTI_2015':
         train_dataset, test_dataset = random_split(
-            KITTI_2015(use_crop_size=True, crop_size=(height, width), type='train', crop_seed=None,
-                       untexture_rate=untexture_rate), seed=seed)
+            KITTI_2015(use_crop_size=True, crop_size=(height, width), type='train', crop_seed=None), seed=seed)
 
     elif dataset_name == 'KITTI_2015_Augmentation':
         train_dataset = KITTI_2015_Augmentation(use_crop_size=True, crop_size=(height, width), type='train',
@@ -98,18 +101,17 @@ def main():
 
     print('Number of training data:', len(train_dataset))
     print('Number of testing data:', len(test_dataset))
-    os.system('nvidia-smi')
 
-    # 5235 MB
     v = version
     while v < max_version + 1:
         try:
             epoch_start_time = datetime.datetime.now()
             print('Exception count:', exception_count)
             if dataset_name == 'flyingthings3D':
-                train_loader = DataLoader(random_subset(train_dataset, 576), batch_size=batch, shuffle=False,
+                # 960, 240
+                train_loader = DataLoader(random_subset(train_dataset, 192), batch_size=batch, shuffle=False,
                                           **dataloader_kwargs)
-                test_loader = DataLoader(random_subset(test_dataset, 144), batch_size=batch, shuffle=False,
+                test_loader = DataLoader(random_subset(test_dataset, 48), batch_size=batch, shuffle=False,
                                          **dataloader_kwargs)
 
             elif dataset_name == 'KITTI_2015':
@@ -119,9 +121,9 @@ def main():
                                          **dataloader_kwargs)
 
             elif dataset_name in ['KITTI_2015_Augmentation', 'KITTI_2012_Augmentation']:
-                train_loader = DataLoader(random_subset(train_dataset, 576), batch_size=batch, shuffle=False,
+                train_loader = DataLoader(random_subset(train_dataset, 960), batch_size=batch, shuffle=False,
                                           **dataloader_kwargs)
-                test_loader = DataLoader(random_subset(test_dataset, 144), batch_size=batch, shuffle=False,
+                test_loader = DataLoader(random_subset(test_dataset, 240), batch_size=batch, shuffle=False,
                                          **dataloader_kwargs)
 
             else:
@@ -132,8 +134,9 @@ def main():
             error = []
             total_eval = []
 
-            print('Start training, version = {}'.format(v))
-            model.train()
+            print('Start training')
+            cv_model.eval()
+            disp_model.train()
             for batch_index, (X, Y, pass_info) in enumerate(train_loader):
                 if torch.all(Y == 0):
                     print('Detect Y are all zero')
@@ -141,30 +144,18 @@ def main():
                 X, Y = X.cuda(), Y.cuda()
 
                 utils.tic()
-                if isinstance(used_profile, profile.GDNet_flip_training):
-                    optimizer.zero_grad()
-                    train_dict0 = used_profile.train(X, Y, dataset_name, flip=False)
-                    train_dict0['loss'].backward()
-                    optimizer.step()
+                with torch.no_grad():
+                    cv_model.flip = False
+                    cost_left = cv_model(X[:, 0:3, :, :], X[:, 3:6, :, :]).unsqueeze(1)
+                    cv_model.flip = True
+                    cost_right = cv_model(X[:, 0:3, :, :], X[:, 3:6, :, :]).unsqueeze(1)
 
-                    optimizer.zero_grad()
-                    train_dict1 = used_profile.train(X, Y, dataset_name, flip=True)
-                    train_dict1['loss'].backward()
-                    optimizer.step()
-
-                    wl = width / (2 * width - max_disparity)
-                    wr = (width - max_disparity) / (2 * width - max_disparity)
-
-                    loss = wl * train_dict0['loss'] + wr * train_dict1['loss']
-                    epe_loss = wl * train_dict0['epe_loss'] + wr * train_dict1['epe_loss']
-                    train_dict = train_dict0
-                else:
-                    optimizer.zero_grad()
-                    train_dict = used_profile.train(X, Y, dataset_name)
-                    train_dict['loss'].backward()
-                    loss = train_dict['loss']
-                    epe_loss = train_dict['epe_loss']
-                    optimizer.step()
+                optimizer.zero_grad()
+                train_dict = used_disp_profile.train(cost_left, cost_right, Y, dataset_name)
+                train_dict['loss'].backward()
+                loss = train_dict['loss']
+                epe_loss = train_dict['epe_loss']
+                optimizer.step()
 
                 train_loss.append(float(epe_loss))
 
@@ -175,7 +166,6 @@ def main():
 
                 if is_plot_image:
                     plotter = utils.CostPlotter()
-
                     plotter.plot_image_disparity(X[0], Y[0, 0], dataset_name, train_dict,
                                                  max_disparity=max_disparity, use_resize=False,
                                                  use_padding_crop_size=False, pass_info=pass_info)
@@ -187,7 +177,7 @@ def main():
             print(f'Avg train loss = {utils.threshold_color(train_loss)}{train_loss:.3f}{Style.RESET_ALL}')
 
             print('Start testing, version = {}'.format(v))
-            model.eval()
+            disp_model.eval()
             for batch_index, (X, Y, pass_info) in enumerate(test_loader):
                 if torch.all(Y == 0):
                     print('Detect Y are all zero')
@@ -196,7 +186,11 @@ def main():
 
                 utils.tic()
                 with torch.no_grad():
-                    eval_dict = used_profile.eval(X, Y, pass_info, dataset_name)
+                    cv_model.flip = False
+                    cost_left = cv_model(X[:, 0:3, :, :], X[:, 3:6, :, :]).unsqueeze(1)
+                    cv_model.flip = True
+                    cost_right = cv_model(X[:, 0:3, :, :], X[:, 3:6, :, :]).unsqueeze(1)
+                    eval_dict = used_disp_profile.eval(cost_left, cost_right, Y, pass_info, dataset_name)
                     time = utils.timespan_str(utils.toc(True))
                     loss_str = f'epe loss = {utils.threshold_color(eval_dict["epe_loss"])}{eval_dict["epe_loss"]:.3f}{Style.RESET_ALL}'
                     error_rate_str = f'error rate = {eval_dict["error_sum"] / eval_dict["total_eval"]:.2%}'
@@ -225,7 +219,7 @@ def main():
             loss_history['test'].append(test_loss)
 
             print('Start save model')
-            used_profile.save_version(model, loss_history, v)
+            used_disp_profile.save_version(disp_model, loss_history, v)
             epoch_end_time = datetime.datetime.now()
             print(f'[{utils.timespan_str(epoch_end_time - epoch_start_time)}] version = {v}')
             v += 1
@@ -234,7 +228,6 @@ def main():
             # traceback.format_exc()  # Traceback string
             traceback.print_exc()
             exception_count += 1
-            v -= 1
             # if exception_count >= 50:
             #     exit(-1)
             if is_debug:

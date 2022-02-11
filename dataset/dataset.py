@@ -139,7 +139,7 @@ class KITTI_2015(Dataset):
     # HEIGHT, WIDTH = 256, 1248  # GTX 1660 Ti
     def __init__(self, type='train', use_crop_size=False, crop_size=None, crop_seed=None,
                  use_resize=False, resize=(None, None), use_padding_crop_size=False, padding_crop_size=(None, None),
-                 untexture_rate=0.1):
+                 untexture_rate=0):
 
         assert os.path.exists(self.get_root_directory()), 'Dataset path is not exist'
         assert use_crop_size + use_resize <= 1, 'Using one of the crop size and the resize'
