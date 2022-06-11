@@ -13,7 +13,7 @@ import datetime
 def main():
     version = None
     max_version = 2000  # KITTI 2015 v1497 recommended version
-    batch = 3
+    batch = 1
     seed = 0
     is_plot_image = False
     is_debug = False
@@ -25,16 +25,16 @@ def main():
 
     # GTX 1660 Ti
     if isinstance(used_profile, profile.GDNet_sdc6f):
-        # height, width = 192, 576  # 576 - 192 = 384
-        # max_disparity = 192
+        height, width = 192, 576  # 576 - 192 = 384
+        max_disparity = 192
 
-        # v655 start
-        height, width = 128, 384  # 384 - 128 = 256
-        max_disparity = 128
+        # height, width = 128, 384  # 384 - 128 = 256
+        # max_disparity = 128
 
     elif isinstance(used_profile, (profile.GDNet_sd9c6, profile.GDNet_sd9c6f)):
-        height, width = 128, 384  # 384 - 128 = 256
-        max_disparity = 128
+        height, width = 192, 544  # 544 - 160 = 384
+        max_disparity = 160
+
 
     elif isinstance(used_profile, profile.GDNet_mdc6f):
         height, width = 192, 576  # 576 - 144 = 432
@@ -49,7 +49,7 @@ def main():
         max_disparity = 150
 
     elif isinstance(used_profile, profile.GDNet_sd9d6):
-        height, width = 128, 448  # 448 - 160 = 288
+        height, width = 192, 544  # 544 - 160 = 384
         max_disparity = 160
 
     model = used_profile.load_model(max_disparity, version)[1]
@@ -98,7 +98,7 @@ def main():
 
     print('Number of training data:', len(train_dataset))
     print('Number of testing data:', len(test_dataset))
-    os.system('nvidia-smi')
+    # os.system('nvidia-smi')
 
     # 5235 MB
     v = version
@@ -107,9 +107,9 @@ def main():
             epoch_start_time = datetime.datetime.now()
             print('Exception count:', exception_count)
             if dataset_name == 'flyingthings3D':
-                train_loader = DataLoader(random_subset(train_dataset, 576), batch_size=batch, shuffle=False,
+                train_loader = DataLoader(random_subset(train_dataset, 192), batch_size=batch, shuffle=False,
                                           **dataloader_kwargs)
-                test_loader = DataLoader(random_subset(test_dataset, 144), batch_size=batch, shuffle=False,
+                test_loader = DataLoader(random_subset(test_dataset, 48), batch_size=batch, shuffle=False,
                                          **dataloader_kwargs)
 
             elif dataset_name == 'KITTI_2015':
@@ -119,9 +119,9 @@ def main():
                                          **dataloader_kwargs)
 
             elif dataset_name in ['KITTI_2015_Augmentation', 'KITTI_2012_Augmentation']:
-                train_loader = DataLoader(random_subset(train_dataset, 576), batch_size=batch, shuffle=False,
+                train_loader = DataLoader(random_subset(train_dataset, 192), batch_size=batch, shuffle=False,
                                           **dataloader_kwargs)
-                test_loader = DataLoader(random_subset(test_dataset, 144), batch_size=batch, shuffle=False,
+                test_loader = DataLoader(random_subset(test_dataset, 48), batch_size=batch, shuffle=False,
                                          **dataloader_kwargs)
 
             else:

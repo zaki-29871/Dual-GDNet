@@ -170,6 +170,7 @@ class CostPlotter:
         self.max_disparity = max_disparity
         self.padding = padding
         self.confidence_error = None
+        self.confidence_error_cost = None
         self.candidate_error = None
         self.predict = None
         self.error_map = None
@@ -523,8 +524,12 @@ class CostPlotter:
                                           markersize=self.marker_size, linewidth=5)
 
         ax = self.cost_volume_fig.axes[0]
-        self.check_line['cost_volume'] = ax.axvline(d, color='#21ba45', linestyle='-', label=f'check disp ({d:.2f}, '
-                                                                                             f'{self.confidence_error_cost[d, self.r, self.c]:.2f})')
+        if self.confidence_error_cost is None:
+            self.check_line['cost_volume'] = ax.axvline(d, color='#21ba45', linestyle='-', label=f'check disp ({d:.2f})')
+        else:
+            self.check_line['cost_volume'] = ax.axvline(d, color='#21ba45', linestyle='-',
+                                                        label=f'check disp ({d:.2f}, '
+                                                              f'{self.confidence_error_cost[d, self.r, self.c]:.2f})')
         ax.legend()
 
         self.fig.canvas.draw_idle()

@@ -26,8 +26,8 @@ trend_kernel = 1  # version (plot) + trend kernel = real model version, trend_ke
 trend_regression_size = 1  # to see the loss is decent or not, trend_regression_size = [1, n]
 trend_method = ['corr', 'regression'][1]
 epe = EPE_Loss()
-used_profile = profile.MergeNet_d()
-start_version = 1  # start_version = [1, n]
+used_profile = profile.GDNet_sdc6f()
+start_version = 850  # start_version = [1, n]
 
 version, loss_history = used_profile.load_history(version)
 print('Number of epochs:', len(loss_history['test']))

@@ -8,17 +8,22 @@ import utils.cost_volume as cv
 
 def main():
     # GTX 1660 TiTi
-    # max_disparity = 192  # KITTI 2015
-    max_disparity = 160  # flyingthings3D
-    version = None
+    max_disparity = 192  # KITTI 2015
+    # max_disparity = 160  # flyingthings3D
+    version = 1200
     seed = 0
     merge_cost = True
-    plot_and_save_image = False
-    plot_and_show_image = True
-    plot_threshold = 0.015
     use_crop_size = False
     use_resize = False
     use_padding_crop_size = True
+
+    # CostPlotter Settings
+    plot_and_save_image = False
+    plot_and_show_image = False
+    show_index = None
+    plot_threshold = 0.015
+    use_confidence_error_cost = False
+    use_candidate_error = plot_and_show_image
 
     if use_resize + use_crop_size + use_padding_crop_size != 1:
         raise Exception('Using only one image regeneration method')
@@ -27,7 +32,7 @@ def main():
                     'KITTI_2015_benchmark', 'AerialImagery'][4]
 
     used_profile = profile.GDNet_sdc6f()
-    dataloader_kwargs = {'num_workers': 0, 'pin_memory': True, 'drop_last': True}
+    dataloader_kwargs = {'num_workers': 8, 'pin_memory': True, 'drop_last': True}
 
     model = used_profile.load_model(max_disparity, version)[1]
     version, loss_history = used_profile.load_history(version)
@@ -46,6 +51,8 @@ def main():
     error = []
     confidence_error = []
     total_eval = []
+    show_index_count = 0
+    is_show = False
 
     if use_crop_size:
         if dataset_name == 'flyingthings3D':
@@ -160,9 +167,22 @@ def main():
     print('Image size:', (height, width))
     test_loader = DataLoader(test_dataset, batch_size=1, shuffle=False, **dataloader_kwargs)
     print('Number of testing data:', len(test_dataset))
+
+    if plot_and_show_image and show_index is not None:
+        assert 1 <= show_index <= len(test_dataset)
+
     model.eval()
     for batch_index, (X, Y, pass_info) in enumerate(test_loader):
         X, Y = X.cuda(), Y.cuda()
+        show_index_count += 1
+
+        if plot_and_show_image and show_index is not None and show_index_count < show_index:
+            print(f'Skip batch: {show_index_count}')
+            is_show = True
+            continue
+
+        if plot_and_save_image and is_show:
+            exit()
 
         with torch.no_grad():
             utils.tic()
@@ -170,7 +190,9 @@ def main():
             if isinstance(used_profile, profile.GDNet_class_regression_basic):
                 eval_dict = used_profile.eval(X, Y, pass_info, dataset_name, use_resize=use_resize,
                                               use_padding_crop_size=use_padding_crop_size,
-                                              merge_cost=merge_cost, regression=True)
+                                              merge_cost=merge_cost, regression=True,
+                                              use_confidence_error_cost=use_confidence_error_cost,
+                                              use_candidate_error=use_candidate_error)
 
             elif isinstance(used_profile, profile.GDNet_disparity_regression_basic):
                 eval_dict = used_profile.eval(X, Y, pass_info, dataset_name, use_resize=use_resize,
@@ -203,6 +225,7 @@ def main():
             if plot_and_show_image and eval_dict["error_sum"] / eval_dict["total_eval"] > plot_threshold:
                 plotter = utils.CostPlotter()
                 cost_volume_data = []
+
                 if eval_dict["cost_left"] is not None:
                     cv_data = cv.CostVolumeData(str(used_profile), - eval_dict["cost_left"])
                     cv_data.line_style = '-'
@@ -218,6 +241,7 @@ def main():
                                                 eval_dict["disp"])
                     cv_data.line_style = '-'
                     cost_volume_data.append(cv_data)
+
                 plotter.cost_volume_data = cost_volume_data
                 plotter.plot_image_disparity(X[0], Y[0, 0], dataset_name, eval_dict,
                                              max_disparity=max_disparity, use_resize=use_resize,

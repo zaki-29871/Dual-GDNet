@@ -212,9 +212,11 @@ class CostInterpolateAggregation(nn.Module):
     def forward(self, x, lga_list: list):
         x = F.interpolate(self.conv32x1(x), scale_factor=8, mode='trilinear', align_corners=False)
         x = torch.squeeze(x, 1)  # D, H, W
-        for lga in lga_list:
+        for lga in lga_list[:-1]:
             x = self.lga(x, lga)  # D, H, W
             x = F.leaky_relu(x)
+        x = self.lga(x, lga_list[-1])  # D, H, W
+        x = F.softmax(x, dim=1)
         return x
 
 
@@ -441,9 +443,9 @@ class CostAggregation(nn.Module):
             return cost2
 
 
-class GDNet_sd9c6(nn.Module):
+class GDNet_sd9d6(nn.Module):
     def __init__(self, max_disparity=192):
-        super(GDNet_sd9c6, self).__init__()
+        super(GDNet_sd9d6, self).__init__()
         self.max_disparity = max_disparity
 
         self.conv_start = nn.Sequential(BasicConv(3, 16, kernel_size=3, padding=1),

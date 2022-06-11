@@ -11,6 +11,7 @@ import GDNet.GDNet_dc6f
 import GDNet.GDNet_sdc6
 import GDNet.GDNet_sdc6f
 import GDNet.GDNet_sd9c6
+import GDNet.GDNet_sd9d6
 import GDNet.GDNet_sd9c6f
 import GDNet.GDNet_fdc6
 import GDNet.GDNet_fdc6f
@@ -415,6 +416,7 @@ class MergeNet_d(Profile):
             'disp': disparity.float(),
         }
 
+
 class GDNet_class_regression_basic(GDNet_class_regression):
     def get_model(self, max_disparity):
         GDNet_class_regression.get_model(self, max_disparity)
@@ -426,8 +428,9 @@ class GDNet_class_regression_basic(GDNet_class_regression):
 
         return train_dict
 
-    def eval(self, X, Y, pass_info, dataset_name, merge_cost=False, regression=False, use_resize=False,
-             use_padding_crop_size=False):
+    def eval(self, X, Y, pass_info, dataset_name, merge_cost=True, regression=True, use_candidate_error=False,
+             use_candidate_adjustment=False, use_confidence_error_cost=False, deleting_candidate_error_region=False,
+             use_resize=False, use_padding_crop_size=False):
         assert not self.model.training
         Y = Y[:, 0, :, :]
 
@@ -445,8 +448,11 @@ class GDNet_class_regression_basic(GDNet_class_regression):
         if merge_cost:
             cost_merge = cost_process_left.clone()
             flip_cost = GDNet.function.FlipCost.apply(cost_process_right)
-            confidence_error, confidence_error_cost = disparity_confidence_error_gpu(cost_left, flip_cost)
-            confidence_error = disparity_confidence_error_gpu(cost_left, flip_cost)[0]
+            if use_confidence_error_cost:
+                confidence_error, confidence_error_cost = disparity_confidence_error_gpu(cost_left, flip_cost)
+            else:
+                confidence_error = disparity_confidence_error_gpu(cost_left, flip_cost)[0]
+                confidence_error_cost = None
             average_confidence_error = confidence_error[:, self.max_disparity:].mean()
             cost_merge[..., self.max_disparity:] = (cost_merge[..., self.max_disparity:] + flip_cost[...,
                                                                                            self.max_disparity:]) / 2
@@ -471,28 +477,25 @@ class GDNet_class_regression_basic(GDNet_class_regression):
         else:
             disp_left = disp_max_left
 
-        # # candidate_error
-        if merge_cost:
+        # candidate_error
+        if merge_cost and use_candidate_error:
             cost_max_left = torch.max(cost_merge, dim=1).values
             cost_max_left_2 = torch.max(cost_merge * (squeeze_mask == 0), dim=1).values
             candidate_error = cost_max_left_2.abs() / (cost_max_left.abs() + cost_max_left_2.abs())
 
-            # candidate adjustment
-            # mask = (candidate_error > 0.8) & (confidence_error > 0.3)
-            # disp_max_left = torch.argmax(cost_merge, dim=1).float()
-            # disp_max_left_2 = torch.argmax(cost_merge * (squeeze_mask == 0), dim=1).float()
-            # disp_max_left[mask] = disp_max_left_2[mask]
-            # cost = F.softmax(cost_merge, dim=1)
-            # cost = self.squeeze_cost_grad(cost, disp_max_left.float())[1]
-            # disp_left = self.disparity(cost)
+            if use_candidate_adjustment:
+                mask = (candidate_error > 0.8) & (confidence_error > 0.3)
+                disp_max_left = torch.argmax(cost_merge, dim=1).float()
+                disp_max_left_2 = torch.argmax(cost_merge * (squeeze_mask == 0), dim=1).float()
+                disp_max_left[mask] = disp_max_left_2[mask]
+                cost = F.softmax(cost_merge, dim=1)
+                cost = self.squeeze_cost_grad(cost, disp_max_left.float())[1]
+                disp_left = self.disparity(cost)
 
-            # Deleting candidate error region
-            # disp_left[(candidate_error > 0.4) | (confidence_error > 0.3)] = 0
-
+            if deleting_candidate_error_region:
+                disp_left[(candidate_error > 0.4) | (confidence_error > 0.3)] = 0
         else:
             candidate_error = None
-
-
 
         # Evaluation
         mask = utils.y_mask(Y, self.max_disparity, dataset_name)
@@ -776,7 +779,7 @@ class GDNet_sd9d6(GDNet_disparity_regression_basic):
     def get_model(self, max_disparity):
         super().get_model(max_disparity)
         self.cost_count = 3
-        return GDNet.GDNet_sd9c6.GDNet_sd9c6(max_disparity)
+        return GDNet.GDNet_sd9d6.GDNet_sd9d6(max_disparity)
 
 
 class GDNet_sd9c6f(GDNet_flip_training):

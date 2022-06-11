@@ -27,12 +27,11 @@ def main():
 
     # GTX 1660 Ti
     if isinstance(used_cv_profile, profile.GDNet_sdc6f):
-        # height, width = 192, 576  # 576 - 192 = 384
-        # max_disparity = 192
+        height, width = 192, 576  # 576 - 192 = 384
+        max_disparity = 192
 
-        # v655 start
-        height, width = 128, 384  # 384 - 128 = 256
-        max_disparity = 128
+        # height, width = 128, 384  # 384 - 128 = 256
+        # max_disparity = 128
 
     elif isinstance(used_cv_profile, (profile.GDNet_sd9c6, profile.GDNet_sd9c6f)):
         height, width = 128, 384  # 384 - 128 = 256
