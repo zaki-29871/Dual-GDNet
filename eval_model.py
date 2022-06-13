@@ -19,7 +19,7 @@ def main():
 
     # CostPlotter Settings
     plot_and_save_image = False
-    plot_and_show_image = False
+    plot_and_show_image = True
     show_index = None
     plot_threshold = 0.015
     use_confidence_error_cost = False
@@ -29,7 +29,7 @@ def main():
         raise Exception('Using only one image regeneration method')
 
     dataset_name = ['flyingthings3D', 'KITTI_2015', 'KITTI_2015_Augmentation', 'KITTI_2012_Augmentation',
-                    'KITTI_2015_benchmark', 'AerialImagery'][4]
+                    'KITTI_2015_benchmark', 'AerialImagery'][2]
 
     used_profile = profile.GDNet_sdc6f()
     dataloader_kwargs = {'num_workers': 8, 'pin_memory': True, 'drop_last': True}
