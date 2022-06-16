@@ -1,7 +1,7 @@
 import unittest
 import torch
 import torch.nn.functional as F
-import ganet_lib
+import gdnet_lib
 
 class CalculatorTestCase(unittest.TestCase):
 
@@ -21,7 +21,7 @@ class CalculatorTestCase(unittest.TestCase):
         NoChannelCostTensor = torch.zeros((self.batch, self.max_disparity, self.height, self.width)).cuda()
         LgaWeightTensor = torch.zeros((self.batch, 3, 5, 5, self.height, self.width)).cuda()
 
-        ganet_lib.cuda_test(CostAggregationTensor, CostTensor, SgaWeightTensor, MaxTensor,
+        gdnet_lib.cuda_test(CostAggregationTensor, CostTensor, SgaWeightTensor, MaxTensor,
                        NoChannelCostTensor, LgaWeightTensor)
 
         self.assertTrue(all(CostAggregationTensor[:, 2, 2, 2, 2, 2] == 2))
